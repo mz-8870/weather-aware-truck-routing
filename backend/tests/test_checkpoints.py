@@ -109,3 +109,8 @@ def test_hos_stops_are_placed_where_the_driving_clock_runs_out() -> None:
 
 def test_a_short_trip_has_no_stops() -> None:
     assert hos_stops(*straight_route(400)) == []  # under 8 h at 60 mph
+
+
+def test_a_trip_ending_exactly_at_a_break_or_rest_needs_no_stop_on_arrival() -> None:
+    assert hos_stops(*straight_route(480)) == []  # exactly 8 h at 60 mph: arrives as the break would start
+    assert [s.kind for s in hos_stops(*straight_route(660))] == ["break"]  # exactly 11 h: no rest at the door

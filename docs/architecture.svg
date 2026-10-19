@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-title architecture-desc" id="architecture-root">
+        <title id="architecture-title">Weather-Aware Truck Routing architecture</title>
+        <desc id="architecture-desc">The browser loads a static React app from Vercel and calls a Django API there, which uses pure domain modules plus TomTom for routing and Open-Meteo for hourly weather.</desc>
+        <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #architecture-root { --color-paper: #f5f3ee;  
+      --color-ink: #1a1d1c;    
+      --color-muted: #545955;  
+      --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace; }
+      #architecture-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #architecture-root .diagram-container { width: 100%; overflow-x: auto; }
+      #architecture-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#545955"/></marker>
+          <marker id="architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0b3c49"/></marker>
+          <marker id="architecture-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1f6a7a"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f3ee"/>
+
+        <!-- Zone: Vercel -->
+        <rect x="248" y="56" width="476" height="420" rx="8" fill="#1a1d1c" fill-opacity="0.02" stroke="#1a1d1c" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="256" y="60" width="128" height="12" rx="2" fill="#f5f3ee"/>
+        <text x="320" y="69" fill="#6f736f" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.14em">VERCEL PROJECT</text>
+
+        <!-- Arrows (drawn before nodes) -->
+        <!-- Browser loads the static app -->
+        <path d="M 124,228 V 136 Q 124,128 132,128 H 268" fill="none" stroke="#545955" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <rect x="140" y="108" width="72" height="12" rx="2" fill="#f5f3ee"/>
+        <text x="176" y="117" fill="#545955" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.08em">GET /</text>
+        <!-- Browser calls the API (headline path) -->
+        <line x1="212" y1="268" x2="268" y2="268" stroke="#0b3c49" stroke-width="1.6" marker-end="url(#architecture-arrow-accent)"/>
+        <rect x="214" y="246" width="52" height="12" rx="2" fill="#f5f3ee"/>
+        <text x="240" y="255" fill="#0b3c49" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.08em">/API/*</text>
+        <!-- API → domain logic -->
+        <path d="M 452,248 H 468 Q 476,248 476,240 V 144 Q 476,136 484,136 H 498" fill="none" stroke="#545955" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <!-- API → tomtom.py -->
+        <line x1="452" y1="268" x2="498" y2="268" stroke="#545955" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <!-- API → weather.py -->
+        <path d="M 452,288 H 476 Q 484,288 484,296 V 400 Q 484,408 492,408 H 498" fill="none" stroke="#545955" stroke-width="1.2" marker-end="url(#architecture-arrow)"/>
+        <!-- tomtom.py → TomTom -->
+        <line x1="700" y1="260" x2="758" y2="260" stroke="#1f6a7a" stroke-width="1.2" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="704" y="238" width="50" height="12" rx="2" fill="#f5f3ee"/>
+        <text x="729" y="247" fill="#1f6a7a" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.08em">HTTPS</text>
+        <!-- weather.py → Open-Meteo -->
+        <line x1="700" y1="408" x2="758" y2="408" stroke="#1f6a7a" stroke-width="1.2" marker-end="url(#architecture-arrow-link)"/>
+        <rect x="704" y="386" width="50" height="12" rx="2" fill="#f5f3ee"/>
+        <text x="729" y="395" fill="#1f6a7a" font-size="8" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.08em">BATCHED</text>
+
+        <!-- Nodes -->
+        <!-- Browser (input) -->
+        <rect x="40" y="228" width="172" height="80" rx="6" fill="#f5f3ee"/>
+        <rect x="40" y="228" width="172" height="80" rx="6" fill="#545955" fill-opacity="0.10" stroke="#6f736f" stroke-width="1"/>
+        <rect x="52" y="240" width="52" height="14" rx="2" fill="#ffffff" stroke="#1a1d1c" stroke-opacity="0.20" stroke-width="0.6"/>
+        <text x="78" y="250" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">BROWSER</text>
+        <text x="52" y="276" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">React SPA</text>
+        <text x="52" y="294" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">MapLibre · deck.gl</text>
+
+        <!-- Static SPA (backend-style) -->
+        <rect x="268" y="96" width="184" height="64" rx="6" fill="#ffffff" stroke="#1a1d1c" stroke-width="1"/>
+        <rect x="280" y="108" width="44" height="14" rx="2" fill="#1a1d1c" fill-opacity="0.05"/>
+        <text x="302" y="118" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">STATIC</text>
+        <text x="332" y="119" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">Vite build</text>
+        <text x="280" y="144" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">frontend/dist</text>
+
+        <!-- Django API (focal) -->
+        <rect x="268" y="228" width="184" height="80" rx="6" fill="#f5f3ee"/>
+        <rect x="268" y="228" width="184" height="80" rx="6" fill="#0b3c49" fill-opacity="0.08" stroke="#0b3c49" stroke-width="1.4"/>
+        <rect x="280" y="240" width="28" height="14" rx="2" fill="#0b3c49"/>
+        <text x="294" y="250" fill="#ffffff" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">API</text>
+        <text x="316" y="251" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">Django + DRF</text>
+        <text x="280" y="276" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">api/index.py</text>
+        <text x="280" y="294" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">plan · heatmap · geocode</text>
+
+        <!-- Domain logic -->
+        <rect x="500" y="96" width="200" height="80" rx="6" fill="#ffffff" stroke="#1a1d1c" stroke-width="1"/>
+        <rect x="512" y="108" width="40" height="14" rx="2" fill="#1a1d1c" fill-opacity="0.05"/>
+        <text x="532" y="118" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">PURE</text>
+        <text x="560" y="119" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">Domain logic</text>
+        <text x="512" y="144" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">checkpoints · HOS · risk</text>
+        <text x="512" y="162" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">ranking · heatmap grid</text>
+
+        <!-- tomtom.py -->
+        <rect x="500" y="228" width="200" height="64" rx="6" fill="#ffffff" stroke="#1a1d1c" stroke-width="1"/>
+        <rect x="512" y="240" width="48" height="14" rx="2" fill="#1a1d1c" fill-opacity="0.05"/>
+        <text x="536" y="250" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">CLIENT</text>
+        <text x="568" y="251" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">tomtom.py</text>
+        <text x="512" y="276" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">truck routes · search</text>
+
+        <!-- weather.py (store-ish: holds the cache) -->
+        <rect x="500" y="376" width="200" height="64" rx="6" fill="#f5f3ee"/>
+        <rect x="500" y="376" width="200" height="64" rx="6" fill="#1a1d1c" fill-opacity="0.05" stroke="#545955" stroke-width="1"/>
+        <rect x="512" y="388" width="48" height="14" rx="2" fill="#ffffff"/>
+        <text x="536" y="398" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">CACHE</text>
+        <text x="568" y="399" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">weather.py</text>
+        <text x="512" y="424" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">50 per call · LRU by hour</text>
+
+        <!-- TomTom (external) -->
+        <rect x="760" y="228" width="168" height="64" rx="6" fill="#f5f3ee"/>
+        <rect x="760" y="228" width="168" height="64" rx="6" fill="#1a1d1c" fill-opacity="0.03" stroke="#1a1d1c" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="772" y="240" width="64" height="14" rx="2" fill="#ffffff"/>
+        <text x="804" y="250" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">EXTERNAL</text>
+        <text x="844" y="251" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">TomTom</text>
+        <text x="772" y="276" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">routing · geocoding</text>
+
+        <!-- Open-Meteo (external) -->
+        <rect x="760" y="376" width="168" height="64" rx="6" fill="#f5f3ee"/>
+        <rect x="760" y="376" width="168" height="64" rx="6" fill="#1a1d1c" fill-opacity="0.03" stroke="#1a1d1c" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="772" y="388" width="64" height="14" rx="2" fill="#ffffff"/>
+        <text x="804" y="398" fill="#545955" font-size="7" font-family="IBM Plex Mono, monospace" text-anchor="middle" letter-spacing="0.12em">EXTERNAL</text>
+        <text x="844" y="399" fill="#1a1d1c" font-size="12" font-weight="600" font-family="IBM Plex Sans, sans-serif">Open-Meteo</text>
+        <text x="772" y="424" fill="#545955" font-size="9" font-family="IBM Plex Mono, monospace">hourly forecast, 16 d</text>
+
+        <!-- Legend -->
+        <line x1="30" y1="508" x2="930" y2="508" stroke="#1a1d1c" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="30" y="532" fill="#545955" font-size="8" font-family="IBM Plex Mono, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="110" y="522" width="20" height="14" rx="3" fill="#0b3c49" fill-opacity="0.08" stroke="#0b3c49" stroke-width="1.2"/>
+        <text x="138" y="532" fill="#1a1d1c" font-size="10" font-family="IBM Plex Sans, sans-serif">Request entry point</text>
+        <rect x="270" y="522" width="20" height="14" rx="3" fill="#ffffff" stroke="#1a1d1c" stroke-width="1"/>
+        <text x="298" y="532" fill="#1a1d1c" font-size="10" font-family="IBM Plex Sans, sans-serif">Our code</text>
+        <rect x="380" y="522" width="20" height="14" rx="3" fill="#1a1d1c" fill-opacity="0.05" stroke="#545955" stroke-width="1"/>
+        <text x="408" y="532" fill="#1a1d1c" font-size="10" font-family="IBM Plex Sans, sans-serif">Per-instance cache</text>
+        <rect x="530" y="522" width="20" height="14" rx="3" fill="#1a1d1c" fill-opacity="0.03" stroke="#1a1d1c" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="558" y="532" fill="#1a1d1c" font-size="10" font-family="IBM Plex Sans, sans-serif">Third-party API</text>
+        <line x1="680" y1="529" x2="712" y2="529" stroke="#1f6a7a" stroke-width="1.2" marker-end="url(#architecture-arrow-link)"/>
+        <text x="720" y="532" fill="#1a1d1c" font-size="10" font-family="IBM Plex Sans, sans-serif">External HTTPS call</text>
+      </svg>
