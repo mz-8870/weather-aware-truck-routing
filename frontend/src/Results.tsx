@@ -2,10 +2,12 @@ import { ArrowLeft } from "lucide-react";
 import { CheckpointList } from "./CheckpointList";
 import { Banner } from "./components/Banner";
 import { Button } from "./components/Button";
-import { dayTime, miles, pounds } from "./format";
+import { dayTime } from "./format";
 import type { Plan, Route } from "./plan";
 import { RouteCard } from "./RouteCard";
 import styles from "./Results.module.css";
+import { convertText, type Formatter } from "./units";
+import { useUnits } from "./useUnits";
 
 type Props = {
   plan: Plan;
@@ -18,11 +20,11 @@ type Props = {
 
 const plural = (n: number) => `${n} route${n === 1 ? "" : "s"}`;
 
-function noTravelBanner(route: Route) {
+function noTravelBanner(route: Route, f: Formatter) {
   const first = route.checkpoints.find((c) => c.level === 4);
   const when = first ? ` around ${dayTime(first.eta)}` : "";
-  const why = first?.reasons[0] ? ` — ${first.reasons[0].replace(/: No Travel$/, "")}` : "";
-  return { title: `${route.name} crosses a No Travel zone`, body: `${miles(route.summary.notravel_mi)}${when}${why}. Ranked last.` };
+  const why = first?.reasons[0] ? ` — ${convertText(first.reasons[0].replace(/: No Travel$/, ""), f.units)}` : "";
+  return { title: `${route.name} crosses a No Travel zone`, body: `${f.distance(route.summary.notravel_mi)}${when}${why}. Ranked last.` };
 }
 
 function detourBanner(plan: Plan) {
@@ -41,6 +43,7 @@ function detourBanner(plan: Plan) {
 }
 
 export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack }: Props) {
+  const f = useUnits();
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
 
@@ -66,14 +69,14 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
         </h2>
         <p className={styles.note}>
           {allBlocked
-            ? `Every route crosses a No Travel zone for a ${pounds(plan.cargo_lb)} load. No route is recommended.`
-            : "Ranked by severe miles, then high miles, average risk, travel time."}
+            ? `Every route crosses a No Travel zone for a ${f.weight(plan.cargo_lb)} load. No route is recommended.`
+            : convertText("Ranked by severe miles, then high miles, average risk, travel time.", f.units)}
         </p>
       </div>
       {allBlocked ? (
         <Banner tone="notravel" title={`No Travel on ${plan.routes.length === 1 ? "the only route" : `all ${plan.routes.length} routes`}`} body="Try a later departure or a lighter load." />
       ) : (
-        plan.routes.filter((r) => r.summary.notravel_mi > 0).map((r) => <Banner key={r.name} tone="notravel" {...noTravelBanner(r)} />)
+        plan.routes.filter((r) => r.summary.notravel_mi > 0).map((r) => <Banner key={r.name} tone="notravel" {...noTravelBanner(r, f)} />)
       )}
       {detour && <Banner tone="info" {...detour} />}
       {plan.routes.map((route, i) => (

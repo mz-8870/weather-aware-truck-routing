@@ -3,39 +3,41 @@ import { RiskBadge } from "./components/RiskBadge";
 import { capitalize, dayTime, elapsed } from "./format";
 import type { Checkpoint } from "./plan";
 import { riskLevel } from "./risk";
+import { convertText, type Formatter } from "./units";
+import { useUnits } from "./useUnits";
 
-// Same precision the classifier saw, so a reading never looks like it crossed a threshold it didn't.
-const reading = (value: number | null, unit: string, fraction: [number, number] = [0, 1]) =>
-  value === null
-    ? "—"
-    : `${value.toLocaleString("en-US", { minimumFractionDigits: fraction[0], maximumFractionDigits: fraction[1] })} ${unit}`;
+// Rules are imperial thresholds; in metric they show the converted value with the original rule beside it.
+const ruleText = (reasons: string[], f: Formatter) =>
+  reasons.map((r) => capitalize(convertText(r, f.units, { original: true }))).join("; ");
 
-function rule(c: Checkpoint): { title: string; text: string } {
+function rule(c: Checkpoint, f: Formatter): { title: string; text: string } {
   if (c.level === null) {
     const allMissing = [c.wind_mph, c.gust_mph, c.rain_in_hr, c.snow_in_hr].every((v) => v === null);
-    const what = allMissing ? "The weather service returned no data." : `${c.reasons.map(capitalize).join("; ")}.`;
+    const what = allMissing ? "The weather service returned no data." : `${ruleText(c.reasons, f)}.`;
     return {
       title: "No forecast for this point",
-      text: `${what} These ${c.owned_mi} mi count as unknown and are left out of the average.`,
+      text: `${what} These ${f.distance(c.owned_mi)} count as unknown and are left out of the average.`,
     };
   }
-  return { title: `Why ${riskLevel(c.level).label}`, text: c.reasons.map(capitalize).join("; ") };
+  return { title: `Why ${riskLevel(c.level).label}`, text: ruleText(c.reasons, f) };
 }
 
 export function CheckpointDetails({ checkpoint: c, number }: { checkpoint: Checkpoint; number: number }) {
-  const { title, text } = rule(c);
+  const f = useUnits();
+  const { title, text } = rule(c, f);
+  // Same precision the classifier saw, so a reading never looks like it crossed a threshold it didn't.
   const rows: [string, string][] = [
-    ["Wind", reading(c.wind_mph, "mph")],
-    ["Gusts (info)", reading(c.gust_mph, "mph")],
-    ["Rain", reading(c.rain_in_hr, "in/hr", [2, 2])],
-    ["Snow", reading(c.snow_in_hr, "in/hr", [2, 2])],
+    ["Wind", f.wind(c.wind_mph)],
+    ["Gusts (info)", f.wind(c.gust_mph)],
+    ["Rain", f.rain(c.rain_in_hr)],
+    ["Snow", f.snow(c.snow_in_hr)],
   ];
   return (
     <div className={styles.details}>
       <div className={styles.head}>
         <div className={styles.titles}>
           <span className={styles.title}>
-            Checkpoint {number} · mile {c.mile.toLocaleString("en-US", { maximumFractionDigits: 1 })}
+            Checkpoint {number} · {f.units === "metric" ? "km" : "mile"} {f.milepost(c.mile)}
           </span>
           <span className={styles.eta}>
             ETA {dayTime(c.eta)} · {elapsed(c.offset_s)}

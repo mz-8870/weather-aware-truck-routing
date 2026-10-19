@@ -4,16 +4,17 @@ import styles from "./SegmentedControl.module.css";
 
 type Props<T extends string> = {
   label: string;
+  hideLabel?: boolean; // still announced, just not drawn (e.g. the header units toggle)
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 };
 
-export function SegmentedControl<T extends string>({ label, value, options, onChange }: Props<T>) {
+export function SegmentedControl<T extends string>({ label, hideLabel, value, options, onChange }: Props<T>) {
   const labelId = useId();
   return (
     <div className={styles.field}>
-      <span id={labelId} className={styles.label}>
+      <span id={labelId} className={hideLabel ? styles.hidden : styles.label}>
         {label}
       </span>
       <ToggleGroup.Root

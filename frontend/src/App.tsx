@@ -4,13 +4,19 @@ import { useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
-import { LocationField, type Place } from "./LocationField";
 import { SegmentedControl } from "./components/SegmentedControl";
+import { Toast, ToastProvider } from "./components/Toast";
+import { LocationField, type Place } from "./LocationField";
 import { planTrip, type ApiError, type Plan, type Trip } from "./plan";
 import { Results } from "./Results";
 import { RouteMap } from "./RouteMap";
+import { formatter, lbFromInput, loadUnits, saveUnits, type Units } from "./units";
+import { UnitsContext } from "./useUnits";
 
-const SPACINGS = [10, 25, 50].map((mi) => ({ value: String(mi), label: `${mi} mi` }));
+const UNITS = [
+  { value: "imperial", label: "Imperial" },
+  { value: "metric", label: "Metric" },
+] as const;
 
 const MODES = [
   { value: "cargo", label: "Cargo only" },
@@ -22,20 +28,25 @@ const FIELDS = ["origin", "destination", "origin_position", "destination_positio
 
 const optionalNumber = (text: string) => (text.trim() === "" ? undefined : Number(text));
 
+const TIME_ZONE = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value;
+
 export default function App() {
+  const [units, setUnitsState] = useState<Units>(() => loadUnits());
+  const [unitsToast, setUnitsToast] = useState<{ open: boolean; previous: Units }>({ open: false, previous: units });
+  const f = formatter(units);
   const [form, setForm] = useState({
     origin: "",
     destination: "",
     departure: "",
-    weight: "",
     mode: "cargo" as "cargo" | "gross",
-    emptyTruck: "35000",
     axles: "",
-    axleWeight: "",
     interval: "25",
   });
+  // Weights are kept in pounds (what the backend takes) and only shown in the current units,
+  // so flipping units never re-rounds them.
+  const [weights, setWeights] = useState<{ weight?: number; emptyTruck?: number; axleWeight?: number }>({ emptyTruck: 35_000 });
   const [advanced, setAdvanced] = useState(false);
-  const gross = form.mode === "cargo" ? Number(form.weight) + Number(form.emptyTruck) : Number(form.weight);
+  const gross = form.mode === "cargo" ? (weights.weight ?? 0) + (weights.emptyTruck ?? 0) : (weights.weight ?? 0);
   const [picked, setPicked] = useState<{ origin?: Place; destination?: Place }>({});
   const [selected, setSelected] = useState(0); // routes come best first, so 0 is the recommendation
   const [expanded, setExpanded] = useState(false);
@@ -50,10 +61,16 @@ export default function App() {
     const e = plan.error?.status === 400 ? plan.error.body[name] : undefined;
     return Array.isArray(e) ? e[0] : undefined;
   };
-  const hasFieldError = FIELDS.some((f) => fieldError(f));
+  const hasFieldError = FIELDS.some((name) => fieldError(name));
   // A server error on a collapsed field would otherwise be invisible.
-  const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((f) => fieldError(f));
+  const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((name) => fieldError(name));
   const alert = plan.error && !hasFieldError ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
+
+  function setUnits(next: Units, toast = true) {
+    setUnitsState(next);
+    saveUnits(next);
+    setUnitsToast({ open: toast, previous: units });
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -64,111 +81,135 @@ export default function App() {
       destination_position: picked.destination && [picked.destination.lat, picked.destination.lon],
       // datetime-local has no zone; the browser's zone is the user's (SPEC: departure in browser TZ).
       departure: new Date(form.departure).toISOString(),
-      weight_lb: Number(form.weight),
+      weight_lb: weights.weight ?? 0,
       weight_mode: form.mode,
-      empty_truck_lb: Number(form.emptyTruck),
+      empty_truck_lb: weights.emptyTruck ?? 0,
       axle_count: optionalNumber(form.axles),
-      axle_weight_lb: optionalNumber(form.axleWeight),
+      axle_weight_lb: weights.axleWeight,
       interval_mi: Number(form.interval),
     });
   }
 
-  const bind = (name: keyof typeof form) => ({
+  const bind = (name: "origin" | "destination" | "departure" | "axles") => ({
     value: form[name],
     onChange: (e: { target: { value: string } }) => setForm({ ...form, [name]: e.target.value }),
   });
 
+  const bindWeight = (name: keyof typeof weights) => ({
+    type: "number",
+    min: 0,
+    step: 1,
+    value: weights[name] === undefined ? "" : f.weightValue(weights[name]),
+    onChange: (e: { target: { value: string } }) => setWeights({ ...weights, [name]: lbFromInput(e.target.value, units) }),
+  });
+
   return (
-    <div className={styles.app}>
-      <header className={styles.header}>
-        <div className={styles.mark} aria-hidden />
-        <h1 className={styles.title}>Weather-Aware Truck Routing</h1>
-      </header>
-      <div className={styles.body}>
-        <aside className={styles.sidebar}>
-          <form className={styles.form} onSubmit={submit}>
-            {(["origin", "destination"] as const).map((name) => (
-              <LocationField
-                key={name}
-                label={name === "origin" ? "Origin" : "Destination"}
-                value={form[name]}
-                error={fieldError(name) ?? fieldError(`${name}_position`)}
-                onChange={(text) => {
-                  setForm({ ...form, [name]: text });
-                  setPicked({ ...picked, [name]: undefined });
-                }}
-                onPick={(place) => {
-                  setForm({ ...form, [name]: place.label });
-                  setPicked({ ...picked, [name]: place });
-                }}
-              />
-            ))}
-            <Field label="Departure" type="datetime-local" required {...bind("departure")} error={fieldError("departure")} />
-            <Field
-              label={form.mode === "cargo" ? "Cargo weight" : "Gross weight"}
-              type="number"
-              min={0}
-              required
-              {...bind("weight")}
-              error={fieldError("weight_lb")}
-              warning={form.weight && gross > MAX_GROSS_LB ? "Over 80,000 lb gross" : undefined}
-              helper="Max 80,000 lb gross"
-            />
-            <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
-            <SegmentedControl
-              label="Check weather every"
-              value={form.interval}
-              options={SPACINGS}
-              onChange={(interval) => setForm({ ...form, interval })}
-            />
-            <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
-              {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
-              Advanced: empty-truck weight, axles
-            </Button>
-            {showAdvanced && (
-              <div className={styles.advancedFields}>
+    <UnitsContext.Provider value={f}>
+      <ToastProvider>
+        <div className={styles.app}>
+          <header className={styles.header}>
+            <div className={styles.mark} aria-hidden />
+            <h1 className={styles.title}>Weather-Aware Truck Routing</h1>
+            <div className={styles.tools}>
+              <SegmentedControl label="Units" hideLabel value={units} options={[...UNITS]} onChange={(next) => setUnits(next)} />
+            </div>
+          </header>
+          <div className={styles.body}>
+            <aside className={styles.sidebar}>
+              <form className={styles.form} onSubmit={submit}>
+                {(["origin", "destination"] as const).map((name) => (
+                  <LocationField
+                    key={name}
+                    label={name === "origin" ? "Origin" : "Destination"}
+                    value={form[name]}
+                    error={fieldError(name) ?? fieldError(`${name}_position`)}
+                    onChange={(text) => {
+                      setForm({ ...form, [name]: text });
+                      setPicked({ ...picked, [name]: undefined });
+                    }}
+                    onPick={(place) => {
+                      setForm({ ...form, [name]: place.label });
+                      setPicked({ ...picked, [name]: place });
+                    }}
+                  />
+                ))}
                 <Field
-                  label="Empty truck weight"
-                  type="number"
-                  min={0}
+                  label="Departure"
+                  type="datetime-local"
                   required
-                  {...bind("emptyTruck")}
-                  error={fieldError("empty_truck_lb")}
-                  helper="Added to cargo for routing. Risk rules use cargo only."
+                  {...bind("departure")}
+                  error={fieldError("departure")}
+                  helper={TIME_ZONE && `Your time zone (${TIME_ZONE})`}
                 />
-                <div className={styles.row}>
-                  <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
-                  <Field label="Weight per axle" type="number" min={1} {...bind("axleWeight")} error={fieldError("axle_weight_lb")} />
-                </div>
-              </div>
-            )}
-            <Button type="submit" disabled={plan.isPending}>
-              Plan routes
-            </Button>
-          </form>
-          {alert && (
-            <p role="alert" className={styles.alert}>
-              {alert}
-            </p>
-          )}
-          {plan.data && plan.variables && (
-            <Results
-              plan={plan.data}
-              intervalMi={plan.variables.interval_mi}
-              selected={selected}
-              expanded={expanded}
-              onSelect={(i) => {
-                setSelected(i);
-                setExpanded(true);
-              }}
-              onBack={() => setExpanded(false)}
-            />
-          )}
-        </aside>
-        <main className={styles.map}>
-          <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} />
-        </main>
-      </div>
-    </div>
+                <Field
+                  label={`${form.mode === "cargo" ? "Cargo" : "Gross"} weight (${f.weightUnit})`}
+                  required
+                  {...bindWeight("weight")}
+                  error={fieldError("weight_lb")}
+                  warning={weights.weight !== undefined && gross > MAX_GROSS_LB ? `Over ${f.weight(MAX_GROSS_LB)} gross` : undefined}
+                  helper={`Max ${f.weight(MAX_GROSS_LB)} gross`}
+                />
+                <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
+                <SegmentedControl
+                  label="Check weather every"
+                  value={form.interval}
+                  options={[10, 25, 50].map((mi) => ({ value: String(mi), label: f.interval(mi) }))}
+                  onChange={(interval) => setForm({ ...form, interval })}
+                />
+                <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
+                  {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
+                  Advanced: empty-truck weight, axles
+                </Button>
+                {showAdvanced && (
+                  <div className={styles.advancedFields}>
+                    <Field
+                      label={`Empty truck weight (${f.weightUnit})`}
+                      required
+                      {...bindWeight("emptyTruck")}
+                      error={fieldError("empty_truck_lb")}
+                      helper="Added to cargo for routing. Risk rules use cargo only."
+                    />
+                    <div className={styles.row}>
+                      <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
+                      <Field label={`Weight per axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
+                    </div>
+                  </div>
+                )}
+                <Button type="submit" disabled={plan.isPending}>
+                  Plan routes
+                </Button>
+              </form>
+              {alert && (
+                <p role="alert" className={styles.alert}>
+                  {alert}
+                </p>
+              )}
+              {plan.data && plan.variables && (
+                <Results
+                  plan={plan.data}
+                  intervalMi={plan.variables.interval_mi}
+                  selected={selected}
+                  expanded={expanded}
+                  onSelect={(i) => {
+                    setSelected(i);
+                    setExpanded(true);
+                  }}
+                  onBack={() => setExpanded(false)}
+                />
+              )}
+            </aside>
+            <main className={styles.map}>
+              <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} />
+            </main>
+          </div>
+        </div>
+        <Toast
+          message={`Units switched to ${units}`}
+          open={unitsToast.open}
+          onOpenChange={(open) => setUnitsToast({ ...unitsToast, open })}
+          action={{ label: "Undo", onClick: () => setUnits(unitsToast.previous, false) }}
+        />
+      </ToastProvider>
+    </UnitsContext.Provider>
   );
 }

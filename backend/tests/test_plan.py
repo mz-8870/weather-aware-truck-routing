@@ -110,7 +110,7 @@ def test_plan_returns_classified_checkpoints_every_interval(client: Client, tomt
     assert len(weather_calls) == 1
     # wind 47 mph is Severe; cargo = 70,000 gross - 35,000 empty = 35,000 > 30,000 raises it to No Travel
     assert cps[3]["level"] == 4
-    assert cps[3]["reasons"] == ["wind 47 mph + cargo 35,000 lb > 30,000"]
+    assert cps[3]["reasons"] == ["wind 47 mph + cargo 35,000 lb > 30,000 lb"]
     assert cps[3]["wind_mph"] == 47.0 and cps[3]["gust_mph"] == 60.0 and cps[3]["beyond_forecast"] is False
     assert cps[3]["eta"] == (datetime.fromisoformat(cps[0]["eta"]) + timedelta(seconds=cps[3]["offset_s"])).isoformat()
 

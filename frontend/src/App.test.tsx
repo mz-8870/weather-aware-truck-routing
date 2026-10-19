@@ -15,6 +15,7 @@ vi.mock("./RouteMap", () => ({
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 const cp = (mile: number, level: number | null, reason: string, eta = "2030-01-15T16:20:00Z") => ({
@@ -88,7 +89,7 @@ function renderApp(planResponse: Response | Error, spacing?: string) {
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
   if (spacing) fireEvent.click(screen.getByRole("radio", { name: spacing }));
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   return fetchMock;
@@ -236,7 +237,7 @@ test("typing 3+ characters suggests places; arrows + Enter pick one and planning
   expect(screen.queryByRole("listbox")).toBeNull();
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
 
   await screen.findByText("3 routes · Route A recommended");
@@ -282,7 +283,7 @@ test("editing a picked place drops its coordinates; Escape closes the list", asy
 
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   await screen.findByText("3 routes · Route A recommended");
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).origin_position).toBeUndefined();
@@ -292,7 +293,7 @@ function fillTrip(weight: string) {
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText(/^(Cargo|Gross) weight$/), { target: { value: weight } });
+  fireEvent.change(screen.getByLabelText(/^(Cargo|Gross) weight \((lb|kg)\)$/), { target: { value: weight } });
 }
 
 async function submittedBody(fetchMock: ReturnType<typeof stubFetch>) {
@@ -314,7 +315,7 @@ function renderBare() {
 test("weight can be entered as gross; the label follows the mode", async () => {
   const fetchMock = renderBare();
   fireEvent.click(screen.getByRole("radio", { name: "Gross (truck + cargo)" }));
-  expect(screen.getByLabelText("Gross weight")).toBeTruthy();
+  expect(screen.getByLabelText("Gross weight (lb)")).toBeTruthy();
   fillTrip("67000");
   const body = await submittedBody(fetchMock);
   expect(body.weight_mode).toBe("gross");
@@ -325,7 +326,7 @@ test("over 80,000 lb gross warns but still plans", async () => {
   const fetchMock = renderBare();
   fillTrip("50000"); // cargo 50,000 + empty 35,000 = 85,000 gross
   expect(screen.getByText("Over 80,000 lb gross")).toBeTruthy();
-  expect(screen.getByLabelText("Cargo weight").getAttribute("aria-invalid")).toBeNull();
+  expect(screen.getByLabelText("Cargo weight (lb)").getAttribute("aria-invalid")).toBeNull();
   expect((await submittedBody(fetchMock)).weight_lb).toBe(50000);
 });
 
@@ -335,7 +336,7 @@ test("advanced options send empty-truck weight, and axle params only when filled
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(toggle);
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  fireEvent.change(screen.getByLabelText("Empty truck weight"), { target: { value: "30000" } });
+  fireEvent.change(screen.getByLabelText("Empty truck weight (lb)"), { target: { value: "30000" } });
   fireEvent.change(screen.getByLabelText("Axles (optional)"), { target: { value: "5" } });
   fillTrip("32000");
   let body = await submittedBody(fetchMock);
@@ -343,7 +344,7 @@ test("advanced options send empty-truck weight, and axle params only when filled
   expect(body.axle_count).toBe(5);
   expect(body).not.toHaveProperty("axle_weight_lb");
 
-  fireEvent.change(screen.getByLabelText("Weight per axle"), { target: { value: "20000" } });
+  fireEvent.change(screen.getByLabelText("Weight per axle (lb)"), { target: { value: "20000" } });
   fetchMock.mockClear();
   body = await submittedBody(fetchMock);
   expect(body.axle_weight_lb).toBe(20000);
@@ -360,4 +361,47 @@ test("a server error on a collapsed advanced field opens the section to show it"
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   expect(await screen.findByText("Ensure this value is greater than or equal to 2.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" }).getAttribute("aria-expanded")).toBe("true");
+});
+
+test("toggling units converts every number on screen without a new request; Undo restores", async () => {
+  const fetchMock = renderApp(Response.json(PLAN));
+  await screen.findByText("3 routes · Route A recommended");
+  fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
+
+  const a = screen.getByRole("button", { name: /^Route A/ });
+  expect(a.textContent).toContain("1,614.8 km · arrives");
+  expect(a.textContent).toContain("20.1 km"); // 12.5 high mi
+  expect(a.textContent).toContain("Wins on high km: 20.1 km vs 77.2 km on Route B (both 0 severe).");
+  expect(screen.getByRole("radio", { name: "40 km" })).toBeTruthy(); // spacing labels follow; value stays 25 mi
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(1);
+  expect(localStorage.getItem("units")).toBe("metric");
+
+  expect(screen.getAllByText("Units switched to metric").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getByRole("button", { name: /^Route A/ }).textContent).toContain("1,003.4 mi · arrives");
+});
+
+test("a metric weight plans with the same pounds as the imperial one", async () => {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
+  expect(screen.getByText("Max 36,287 kg gross")).toBeTruthy();
+  expect(screen.getByLabelText("Cargo weight (kg)")).toBeTruthy();
+  fillTrip("14515");
+  const body = await submittedBody(fetchMock);
+  expect(body.weight_lb).toBe(32000);
+  expect(body.empty_truck_lb).toBe(35000); // untouched default stays exact
+});
+
+test("departure shows the user's time zone", () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText(/^Your time zone \(.+\)$/)).toBeTruthy();
 });
