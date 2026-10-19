@@ -1,6 +1,7 @@
 """TomTom Search + Routing client. The API key never leaves the backend."""
 
 from datetime import datetime, timezone
+from typing import NamedTuple
 from urllib.parse import quote
 
 import httpx
@@ -9,6 +10,13 @@ from django.conf import settings
 KG_PER_LB = 0.45359237
 M_PER_MI = 1609.344
 API = "https://api.tomtom.com"
+
+
+class Route(NamedTuple):
+    points: list[tuple[float, float]]  # (lat, lon)
+    progress: list[tuple[int, float, float]]  # sparse (point_index, distance_m, travel_time_s)
+    distance_mi: float
+    duration_s: int
 
 
 class RoutingError(Exception):
@@ -49,7 +57,7 @@ def truck_route(
     destination: tuple[float, float],
     departure: datetime,
     gross_lb: float,
-) -> dict:
+) -> Route:
     body = _get(
         client,
         f"/routing/1/calculateRoute/{origin[0]},{origin[1]}:{destination[0]},{destination[1]}/json",
@@ -59,13 +67,17 @@ def truck_route(
             "vehicleWeight": round(gross_lb * KG_PER_LB),
             "departAt": departure.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "traffic": "true",
+            "extendedRouteRepresentation": ["distance", "travelTime"],
         },
     )
     if not body.get("routes"):
         raise NotFound("No truck route found for this trip.")
     route = body["routes"][0]
-    return {
-        "coordinates": [[p["longitude"], p["latitude"]] for leg in route["legs"] for p in leg["points"]],
-        "distance_mi": round(route["summary"]["lengthInMeters"] / M_PER_MI, 1),
-        "duration_s": route["summary"]["travelTimeInSeconds"],
-    }
+    if route["summary"]["lengthInMeters"] == 0:  # e.g. "Denver, CO" -> "Denver Colorado"
+        raise NotFound("Origin and destination are the same place.")
+    return Route(
+        points=[(p["latitude"], p["longitude"]) for leg in route["legs"] for p in leg["points"]],
+        progress=[(p["pointIndex"], p["distanceInMeters"], p["travelTimeInSeconds"]) for p in route["progress"]],
+        distance_mi=round(route["summary"]["lengthInMeters"] / M_PER_MI, 1),
+        duration_s=route["summary"]["travelTimeInSeconds"],
+    )

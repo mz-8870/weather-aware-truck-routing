@@ -35,8 +35,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 3 | Screens (Gate 2) | ✅ approved, closed |
 | 4 | Tokens in code | ✅ merged (#19) |
 | 5 | Risk engine | ✅ merged (#18) |
-| 6 | Tracer route | PR #20 — reviewer findings fixed; merge after re-review |
-| 7–16 | — | Not started; #7 next |
+| 6 | Tracer route | ✅ merged (#20) |
+| 7 | Checkpoints + weather risk | PR open (branch `issue-7-checkpoints`) |
+| 8–16 | — | Not started; #8 next |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -44,10 +45,13 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Risk ramp:** Low sage, Moderate yellow, High orange, Severe red, No Travel deep purple, Unknown grey — each with an icon (shield-check, circle-alert, triangle-alert, octagon-alert, ban, circle-dashed).
 - **Convert units at the boundary and round** before classifying (float error at thresholds — see PATTERNS_REVIEW rule 10).
 - **Routing vendor is TomTom**, not HERE (HERE signup needed a card; user declined). Key lives in `backend/.env` as `TOMTOM_API_KEY` (gitignored). Free tier ~2,500 req/day. No route → TomTom 400 `NO_ROUTE_FOUND` → our 422. Denver→Chicago returns only 2 routes, so the spec’s via-point fallback for <3 routes will be needed in #8.
-- **#6 API:** `POST /api/plan {origin, destination, departure ISO, weight_lb}` → `{routes:[{coordinates:[[lon,lat]], distance_mi, duration_s}]}`; 400 field errors, 422 `{detail}` (place not found / no route), 502 TomTom down. Geocoding is US-only fuzzy text (`countrySet=US`) until #9 sends coordinates. `weight_lb` is sent to TomTom as gross; cargo/gross modes are #10.
+- **`/api/plan` (as of #7):** `POST {origin, destination, departure ISO, weight_lb, interval_mi 10|25|50 (default 25)}` → `{routes:[{distance_mi, duration_s, checkpoints:[{mile, lat, lon, offset_s, eta, level 0–4|null, reasons, beyond_forecast, wind_mph, gust_mph, rain_in_hr, snow_in_hr, owned_mi}], segments:[{level, coordinates}]}]}` (segments = each checkpoint's owned stretch; no separate `coordinates`); 400 field errors, 422 `{detail}` (place not found / no route), 502 TomTom down. Geocoding is US-only fuzzy text (`countrySet=US`) until #9 sends coordinates. `weight_lb` is sent to TomTom as gross; risk cargo = max(0, weight − 35,000) (`EMPTY_TRUCK_LB` in `views.py`, a `shortcut:`) until #10 adds modes.
 - **Map:** MapLibre + OpenFreeMap tiles (no key), style in `frontend/src/mapStyle.ts` from `map-*` tokens. Vite needs `optimizeDeps.exclude: ["maplibre-gl"]` or the worker 404s in dev.
-- **TomTom timing for #7:** `extendedRouteRepresentation=distance&extendedRouteRepresentation=travelTime` returns ~90 sparse `progress` keyframes `{pointIndex, distanceInMeters, travelTimeInSeconds}` per route (not per point) — interpolate checkpoint ETAs between them. Open-Meteo batch (comma lists) returns a list; rain is mm, snowfall cm, wind in mph when `wind_speed_unit=mph`.
+- **Backend modules:** `tomtom.py` (geocode + truck route → `Route(points, progress, …)`), `checkpoints.py` (pure: sampling, ETA interpolation, owned miles, paths), `weather.py` (batched Open-Meteo, chunks of 50 × 4 in parallel, own 30 s timeout — cold replies for 100 locations took 12–23 s, LRU cache keyed (lat 2dp, lon 2dp, UTC hour); outage → Unknown readings, not cached), `risk.py`. One httpx client per request is shared by TomTom + Open-Meteo, so tests mock both via one `MockTransport`.
+- **Frontend:** `plan.ts` (API types + `planTrip`), `risk.ts` (level → key/label/lucide icon), `CheckpointDetails` (popover body; copy from Pencil screen 06b), `RouteMap` (risk-colored segments + checkpoint circles; click → Radix popover anchored at the click point; closes on map move).
+- **TomTom timing:** `extendedRouteRepresentation=distance&extendedRouteRepresentation=travelTime` returns ~90 sparse `progress` keyframes `{pointIndex, distanceInMeters, travelTimeInSeconds}` per route (not per point) — interpolate checkpoint ETAs between them. Open-Meteo batch (comma lists) returns a list; rain is mm, snowfall cm, wind in mph when `wind_speed_unit=mph`.
 - **Local dev:** Django `backend/.venv/Scripts/python manage.py runserver 127.0.0.1:8000`; Vite `npm run dev` in `frontend` (proxies `/api`).
+- **Perf note for #15:** Seattle→Miami at 10 mi = 336 checkpoints, ~1 MB JSON (almost all TomTom geometry, 42k points), 4–6 s. Simplify segment geometry for display if 3 routes make it too heavy.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user

@@ -5,7 +5,7 @@ import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
 vi.mock("./RouteMap", () => ({
-  RouteMap: ({ coordinates }: { coordinates?: number[][] }) => <div>map: {coordinates?.length ?? 0} points</div>,
+  RouteMap: ({ route }: { route?: { checkpoints: unknown[] } }) => <div>map: {route?.checkpoints.length ?? 0} checkpoints</div>,
 }));
 
 afterEach(() => {
@@ -13,9 +13,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const ROUTE = { coordinates: [[-104.99, 39.74], [-100, 40.5], [-87.63, 41.88]], distance_mi: 1003.4, duration_s: 54900 };
+const ROUTE = { distance_mi: 1003.4, duration_s: 54900, checkpoints: [{}, {}, {}], segments: [] };
 
-function renderApp(planResponse: Response | Error) {
+function renderApp(planResponse: Response | Error, spacing?: string) {
   const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
     if (planResponse instanceof Error) throw planResponse;
     return planResponse;
@@ -30,6 +30,7 @@ function renderApp(planResponse: Response | Error) {
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
   fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  if (spacing) fireEvent.click(screen.getByRole("radio", { name: spacing }));
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   return fetchMock;
 }
@@ -39,7 +40,7 @@ test("planning a trip draws the route and shows distance and duration", async ()
 
   expect(await screen.findByText("1,003.4 mi")).toBeTruthy();
   expect(screen.getByText("15 h 15 min")).toBeTruthy();
-  expect(screen.getByText("map: 3 points")).toBeTruthy();
+  expect(screen.getByText("map: 3 checkpoints")).toBeTruthy();
 
   const [url, init] = fetchMock.mock.calls[0];
   expect(url).toBe("/api/plan");
@@ -48,7 +49,14 @@ test("planning a trip draws the route and shows distance and duration", async ()
     destination: "Chicago, IL",
     departure: new Date("2030-01-15T08:00").toISOString(),
     weight_lb: 70000,
+    interval_mi: 25,
   });
+});
+
+test("checkpoint spacing toggle changes the requested interval", async () => {
+  const fetchMock = renderApp(Response.json({ routes: [ROUTE] }), "10 mi");
+  await screen.findByText("1,003.4 mi");
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).interval_mi).toBe(10);
 });
 
 test("server validation errors show inline under their fields", async () => {
