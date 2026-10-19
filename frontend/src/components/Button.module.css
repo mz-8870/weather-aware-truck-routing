@@ -32,7 +32,15 @@
   color: var(--color-text-primary);
 }
 
+.secondary:hover {
+  background: var(--color-surface-sunken);
+}
+
 .ghost {
   background: transparent;
   color: var(--color-brand);
+}
+
+.ghost:hover {
+  background: var(--color-brand-subtle);
 }
