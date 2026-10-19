@@ -5,8 +5,9 @@ import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
 vi.mock("./RouteMap", () => ({
-  RouteMap: ({ routes, selected, heat, trucks }: { routes?: unknown[]; selected: number; heat?: { levels: unknown[] }; trucks?: number[][] }) => (
+  RouteMap: ({ routes, selected, heat, trucks, mode }: { routes?: unknown[]; selected: number; heat?: { levels: unknown[] }; trucks?: number[][]; mode: string }) => (
     <div>
+      <div>map theme: {mode}</div>
       <div>
         map: {routes?.length ?? 0} routes, selected {selected}
       </div>
@@ -590,6 +591,7 @@ test("the theme toggle switches to dark, is remembered, and switches back", () =
   expect(document.documentElement.dataset.theme).toBe("light"); // SPEC: light by default
   fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
   expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(screen.getByText("map theme: dark")).toBeTruthy(); // the map is built from the new theme, not the DOM's old one
   expect(localStorage.getItem("theme")).toBe("dark");
 
   cleanup();

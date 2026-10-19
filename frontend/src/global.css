@@ -21,13 +21,14 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* MapLibre's controls follow the theme (they ship light-only). */
-.maplibregl-ctrl-group,
-.maplibregl-ctrl-attrib {
-  background: var(--color-surface-raised) !important;
+/* MapLibre's controls follow the theme (they ship light-only); selectors match theirs in specificity. */
+.maplibregl-ctrl.maplibregl-ctrl-group,
+.maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
 }
 
-.maplibregl-ctrl-attrib,
 .maplibregl-ctrl-attrib a {
   color: var(--color-text-secondary);
 }
