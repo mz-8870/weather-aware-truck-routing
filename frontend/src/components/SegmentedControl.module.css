@@ -28,7 +28,7 @@
 }
 
 .item {
-  height: calc(var(--space-8) + var(--space-1));
+  height: calc(var(--control-height) - 2 * var(--space-1)); /* root padding; the whole control is one control-height */
   padding: 0 var(--space-3);
   border: thin solid transparent;
   border-radius: var(--radius-sm);
