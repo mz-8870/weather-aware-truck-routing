@@ -32,9 +32,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 2. Then #14 (mobile bottom sheet + dark mode incl. basemap) → #15 (Playwright smoke in CI + perf) → #16 (docs, release).
 3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, placeholder brand mark (design has a `truck` icon in the mark — screen 01), dark-mode severe vs high hue distance (1.36:1; dark mode is #14).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
-5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%
-pm-cache\_npx\*
-ode_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
+5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
 
 ## Status (2026-10-20)
 | # | Ticket | State |
