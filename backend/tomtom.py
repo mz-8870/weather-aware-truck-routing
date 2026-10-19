@@ -54,6 +54,33 @@ def geocode(client: httpx.Client, query: str) -> tuple[float, float]:
     return results[0]["position"]["lat"], results[0]["position"]["lon"]
 
 
+def _kind(result: dict) -> str:
+    if result["type"] == "Geography":
+        return "City" if result.get("entityType") == "Municipality" else "Region"
+    if result["type"] == "POI":
+        names = [n["name"] for c in result.get("poi", {}).get("classifications", []) for n in c.get("names", [])]
+        return names[0].capitalize() if names else "Place"
+    return {"Street": "Street", "Cross Street": "Intersection"}.get(result["type"], "Address")
+
+
+def suggest(client: httpx.Client, query: str) -> list[dict]:
+    """Typeahead suggestions for a partly typed place, US only (as the rest of the app)."""
+    results = _get(
+        client,
+        f"/search/2/search/{quote(query, safe='')}.json",
+        {"typeahead": "true", "limit": 5, "countrySet": "US"},
+    ).get("results", [])
+    return [
+        {
+            "label": r["poi"]["name"] if r["type"] == "POI" else r["address"]["freeformAddress"],
+            "kind": _kind(r),
+            "lat": r["position"]["lat"],
+            "lon": r["position"]["lon"],
+        }
+        for r in results
+    ]
+
+
 def truck_routes(
     client: httpx.Client,
     origin: tuple[float, float],
