@@ -1,4 +1,5 @@
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -10,7 +11,6 @@
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   text-align: left;
-  cursor: pointer;
 }
 
 .card[data-selected="true"] {
@@ -18,7 +18,29 @@
   box-shadow: 0 0 0 thin var(--color-brand);
 }
 
-.card:focus-visible {
+/* The select button's hit area covers the whole card, so the card stays one click target. */
+.select {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+}
+
+.select:focus-visible {
+  outline: none;
+}
+
+.select:focus-visible::after {
   outline: medium solid var(--color-focus-ring);
   outline-offset: thin;
 }
@@ -120,6 +142,12 @@
   font-weight: 600;
 }
 
+.clear {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
 .dot {
   width: var(--space-2);
   height: var(--space-2);
@@ -149,7 +177,3 @@
 .bar [data-risk="severe"], .dot[data-risk="severe"] { background: var(--risk-severe); }
 .bar [data-risk="notravel"], .dot[data-risk="notravel"] { background: var(--risk-notravel); }
 .bar [data-risk="unknown"], .dot[data-risk="unknown"] { background: var(--risk-unknown); }
-
-div.card {
-  cursor: default;
-}
