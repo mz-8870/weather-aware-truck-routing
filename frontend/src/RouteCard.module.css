@@ -104,6 +104,7 @@
 .duration {
   font: 600 var(--text-xl) var(--font-mono);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .distance {
