@@ -21,7 +21,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
   - Validation: weight ≥ 0; warn > 80,000 lb gross.
 
 ## Checkpoints & ETA
-- Points every N miles along the polyline; ETA interpolated from TomTom per-point travel times (traffic-aware for departure time). No HOS breaks (future feature).
+- Points every N miles along the polyline; ETA interpolated from TomTom per-point travel times (traffic-aware for departure time). Optional US hours-of-service breaks (#31, added 2026-10-20): 30 min after 8 h of driving, 10 h rest after 11 h; see README.
 - Each checkpoint owns half the interval on each side (nearest-checkpoint attribution). Drop zero-length/duplicate endpoints.
 
 ## Risk classification (canonical imperial, lower-inclusive / upper-exclusive)

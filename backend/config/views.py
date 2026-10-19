@@ -146,6 +146,8 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         cps = [[replace(c, offset_s=round(hos_elapsed(c.offset_s))) for c in rc] for rc in cps]
     stops = [hos_stops(r.points, r.progress) if t["hos"] else [] for r in routes]
     flat = [s for rs in stops for s in rs]
+    # shortcut: one uncached TomTom reverse geocode per stop (~24 for a coast-to-coast HOS plan, free tier 2,500/day);
+    # cache by rounded position if HOS plans become frequent.
     with ThreadPoolExecutor(8) as pool:  # nearest town per stop; a failed lookup just leaves it unnamed
         places = dict(zip(flat, pool.map(lambda s: tomtom.place_name(client, s.lat, s.lon), flat)))
     stops_json = [
