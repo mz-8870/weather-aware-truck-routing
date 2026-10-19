@@ -28,8 +28,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **#16 docs + release** — PR open from `issue-16-docs`: README (setup, `docs/architecture.svg` from `docs/architecture.html` via the diagram-design skill in the project's own tokens, rules, API), FUTURE_FEATURES.md, LOOM_SCRIPT.md, `vercel.json` `maxDuration: 60`. Reviewer → merge on green CI.
-2. **Needs the user:** Vercel project setup and deploy (env `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.vercel.app`, `TOMTOM_API_KEY`), then make the repo public when they say so.
+1. **Deployed (2026-10-20):** https://weather-aware-truck-routing-gamma.vercel.app (Vercel project `mz-8870/weather-aware-truck-routing`, linked from `C:\dev\wtr-issues`; production env vars set). Redeploy: `npx vercel deploy --prod --yes` from the worktree root. Not connected to Git (no auto-deploy) unless the user asks for `vercel git connect`.
+2. **Needs the user:** make the repo public when they say so.
 3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, dark-mode severe vs high hue distance (1.36:1).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
 5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
@@ -53,7 +53,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 14 | Mobile layout + dark mode | ✅ merged (#29) |
 | 15 | E2E + performance | ✅ merged (#30) |
 | 31 | HOS rest breaks (toggle) | ✅ merged (#32) |
-| 16 | Docs + release | PR open (see Resume here) |
+| 16 | Docs + release | ✅ merged (#33); deployed |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.

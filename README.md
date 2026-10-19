@@ -1,5 +1,7 @@
 # Weather-Aware Truck Routing
 
+**Live:** https://weather-aware-truck-routing-gamma.vercel.app
+
 Plan a truck trip and see the weather **where the truck will be, when it gets there**. The app compares up to three truck routes and checks the forecast every 10, 25 or 50 miles at each checkpoint's ETA. It classifies the risk (with load rules for heavy cargo), recommends the safest route, and lets you scrub a 0–48 h weather heatmap with trucks moving along their routes.
 
 ![Seattle → Miami: three routes, risk heatmap, checkpoint markers and the forecast slider](docs/perf-seattle-miami.png)
@@ -63,6 +65,12 @@ GitHub Actions runs the backend, frontend and e2e jobs on every pull request and
 ## Deploy (Vercel)
 
 There is one project, from the repository root. `vercel.json` builds `frontend/` as static files and serves Django as the Python function `api/index.py` (`maxDuration` 60 s, since long trips take 15–40 s). `/api/*` goes to Django and everything else goes to the SPA.
+
+- **`"framework": null` is required.** Without it, Vercel detects a Python backend framework, routes every request to Django, and skips the Python dependency install.
+- **Python dependencies live in the root `requirements.txt`.** Vercel can't follow `-r` includes, so `backend/requirements.txt` includes the root file instead.
+- **`.vercelignore`** keeps `backend/.env` and local virtualenvs out of the upload.
+
+To deploy from a clone: run `npx vercel link`, add the variables below with `npx vercel env add NAME production`, then run `npx vercel deploy --prod`.
 
 Set these environment variables: `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.vercel.app` and `TOMTOM_API_KEY`.
 
