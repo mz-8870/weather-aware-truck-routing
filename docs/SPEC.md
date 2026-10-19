@@ -10,18 +10,18 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - Local path: `C:\dev\weather-aware-truck-routing`.
 
 ## External APIs
-- Routing + geocoding/autosuggest: HERE (truck profile, alternatives). Keys server-side only (`.env`, Vercel env; `.env.example` committed).
-- If HERE returns <3 routes: synthesize an alternative via a via-point detour; UI explains it.
+- Routing + geocoding/autosuggest: TomTom (truck profile, alternatives; free tier, no card — HERE dropped because signup required a card). Keys server-side only (`.env`, Vercel env; `.env.example` committed).
+- If TomTom returns <3 routes: synthesize an alternative via a via-point detour; UI explains it.
 - Weather: Open-Meteo hourly, batched multi-coordinate. Sustained `wind_speed_10m` classifies; gusts shown as info. `snowfall` cm/h → in/h.
 
 ## Inputs
 - Origin, destination (autosuggest), departure (browser TZ; past rejected), weight, sampling interval toggle 10/25/50 mi (default 25).
-- Weight mode: **Cargo only** | **Gross (truck + cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to HERE only if set).
-  - HERE gets gross. Risk load rules use cargo (gross mode: cargo = max(0, gross − empty)).
+- Weight mode: **Cargo only** | **Gross (truck + cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to TomTom only if set).
+  - TomTom gets gross (`vehicleWeight`, kg). Risk load rules use cargo (gross mode: cargo = max(0, gross − empty)).
   - Validation: weight ≥ 0; warn > 80,000 lb gross.
 
 ## Checkpoints & ETA
-- Points every N miles along the polyline; ETA interpolated from HERE per-span durations (traffic-aware for departure time). No HOS breaks (future feature).
+- Points every N miles along the polyline; ETA interpolated from TomTom per-point travel times (traffic-aware for departure time). No HOS breaks (future feature).
 - Each checkpoint owns half the interval on each side (nearest-checkpoint attribution). Drop zero-length/duplicate endpoints.
 
 ## Risk classification (canonical imperial, lower-inclusive / upper-exclusive)
@@ -46,7 +46,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 ## API
 - `POST /api/plan` → routes, checkpoints, levels, ETAs, summaries, recommendation.
 - `POST /api/heatmap` → corridor grid (~25 mi spacing, 50 mi buffer around all routes), hours 0–48, one batched Open-Meteo fetch (chunked). Slider is client-side only.
-- `GET /api/geocode?q=` → HERE autosuggest proxy.
+- `GET /api/geocode?q=` → TomTom Search typeahead proxy.
 - Cache: per-instance in-memory LRU keyed by (lat, lon rounded 2dp, hour).
 
 ## UI
@@ -64,7 +64,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - Gate 1: approve design system. Gate 2: approve screens. Then export Pencil variables → `tokens.ts` → CSS vars + deck.gl RGB arrays.
 
 ## Quality
-- pytest: every classification/load edge case, mile attribution, ranking, contract test with mocked HERE/Open-Meteo.
+- pytest: every classification/load edge case, mile attribution, ranking, contract test with mocked TomTom/Open-Meteo.
 - Vitest: unit conversion, token generation. Playwright smoke: plan → 3 cards → slider.
 - GitHub Actions CI on push. Stylelint bans raw colors/px in components.
 
