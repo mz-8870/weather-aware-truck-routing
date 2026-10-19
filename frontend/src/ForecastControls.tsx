@@ -1,11 +1,11 @@
-import { LoaderCircle, Pause, Play } from "lucide-react";
+import { CloudRain, EyeOff, Gauge, LoaderCircle, Pause, Play, Snowflake, Wind } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./components/Button";
 import { SegmentedControl } from "./components/SegmentedControl";
 import { Slider } from "./components/Slider";
 import styles from "./ForecastControls.module.css";
 import { dayTime, capitalize } from "./format";
-import { VARIABLES, type Variable } from "./heatmap";
+import type { Variable } from "./heatmap";
 import { riskLevel } from "./risk";
 import { formatter, type Formatter } from "./units";
 import { useUnits } from "./useUnits";
@@ -13,6 +13,14 @@ import { useUnits } from "./useUnits";
 export const MAX_HOUR = 48;
 const PLAY_STEP_MS = 600;
 const TICKS = [0, 12, 24, 36, 48];
+const LAYERS = [
+  { value: "risk", label: "Risk", icon: Gauge },
+  { value: "wind", label: "Wind", icon: Wind },
+  { value: "rain", label: "Rain", icon: CloudRain },
+  { value: "snow", label: "Snow", icon: Snowflake },
+  { value: "off", label: "Off", icon: EyeOff },
+] as const;
+const SCALE = ["Low", "Mod", "High", "Sev", "No travel"]; // Pencil legend labels
 
 // Same bands as backend/risk.py: Moderate, High, Severe lower bounds, then the No Travel bound.
 const BANDS: Record<Exclude<Variable, "risk">, { bounds: number[]; noTravel: string; format: (f: Formatter, v: number) => string }> = {
@@ -56,12 +64,12 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
   return (
     <>
       <div className={styles.layers}>
-        <SegmentedControl
-          label="Heatmap"
-          value={layer}
-          options={[...VARIABLES.map((v) => ({ value: v, label: capitalize(v) })), { value: "off" as const, label: "Off" }]}
-          onChange={onLayer}
-        />
+        <div className={styles.toggle}>
+          <span className={styles.caption} aria-hidden>
+            Heatmap
+          </span>
+          <SegmentedControl label="Heatmap" hideLabel value={layer} options={[...LAYERS]} onChange={onLayer} />
+        </div>
         {status === "pending" && layer !== "off" && (
           <p className={styles.chip} role="status">
             <LoaderCircle aria-hidden className={styles.spin} />
@@ -81,18 +89,27 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
       {layer !== "off" && status === "success" && (
         <section className={styles.legend} aria-label="Legend">
           <h2 className={styles.legendTitle}>{capitalize(layer)} along corridor</h2>
-          <ul className={styles.bands}>
-            {[0, 1, 2, 3, 4].map((l) => {
-              const { key, label } = riskLevel(l);
-              return (
+          <div className={styles.scale} aria-hidden>
+            {[0, 1, 2, 3, 4].map((l) => (
+              <span key={l} style={{ background: `var(--risk-${riskLevel(l).key})` }} />
+            ))}
+          </div>
+          <div className={styles.scaleLabels}>
+            {SCALE.map((s) => (
+              <span key={s}>{s}</span>
+            ))}
+          </div>
+          {bands && (
+            <ul className={styles.bands}>
+              {[0, 1, 2, 3, 4].map((l) => (
                 <li key={l} className={styles.band}>
-                  <span className={styles.swatch} style={{ background: `var(--risk-${key})` }} aria-hidden />
-                  <span>{label}</span>
-                  {bands && <span className={styles.bound}>{bands[l]}</span>}
+                  <span className={styles.swatch} style={{ background: `var(--risk-${riskLevel(l).key})` }} aria-hidden />
+                  <span>{riskLevel(l).label}</span>
+                  <span className={styles.bound}>{bands[l]}</span>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          )}
           <ul className={styles.lines}>
             <li className={styles.band}>
               <span className={`${styles.line} ${styles.selectedLine}`} aria-hidden />
@@ -126,7 +143,7 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
               +{hour} h · {dayTime(at)}
             </span>
           </div>
-          <Slider label="Forecast hour" value={hour} min={0} max={MAX_HOUR} onChange={onHour} />
+          <Slider label="Forecast hour" value={hour} min={0} max={MAX_HOUR} valueText={`+${hour} h, ${dayTime(at)}`} onChange={onHour} />
           <div className={styles.ticks} aria-hidden>
             {TICKS.map((t) => (
               <span key={t}>{t} h</span>

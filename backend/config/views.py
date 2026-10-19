@@ -200,6 +200,7 @@ class HeatmapSerializer(serializers.Serializer):
 
 
 HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
+MAX_CELLS = 1_000  # ~coast to coast; caps Open-Meteo fan-out per request and keeps cells x 49 inside the cache
 
 
 @api_view(["POST"])
@@ -209,6 +210,8 @@ def heatmap(request: Request) -> Response:
     data.is_valid(raise_exception=True)
     d = data.validated_data
     cells = corridor_grid([tuple(p) for p in d["points"]])
+    if len(cells) > MAX_CELLS:
+        return Response({"points": ["Routes cover too large an area for the weather layer."]}, status=400)
     start = d["departure"].astimezone(UTC).replace(minute=0, second=0, microsecond=0)
     hours = [start + timedelta(hours=h) for h in range(HEATMAP_HOURS)]
     with tomtom.http_client() as client:

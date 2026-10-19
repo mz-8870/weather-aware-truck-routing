@@ -115,3 +115,11 @@ def test_bad_heatmap_requests_are_rejected(client: Client, open_meteo: FakeTomTo
     response = heatmap(client, **bad)
     assert response.status_code == 400
     assert set(bad) <= set(response.json())
+
+
+def test_too_large_a_corridor_is_rejected_before_fetching_weather(client: Client, open_meteo: FakeTomTom) -> None:
+    scattered = [[25 + i % 24, -124 + i // 24 * 2] for i in range(24 * 28)]  # points all over the US
+    response = heatmap(client, points=scattered)
+    assert response.status_code == 400
+    assert "points" in response.json()
+    assert open_meteo.sent == []

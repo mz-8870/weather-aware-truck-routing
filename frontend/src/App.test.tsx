@@ -226,6 +226,7 @@ test("after routes appear the heatmap loads for every route's checkpoints; scrub
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   expect(screen.getByText("+2 h · Tue 10:00")).toBeTruthy();
+  expect(slider.getAttribute("aria-valuetext")).toBe("+2 h, Tue 10:00");
   expect(screen.getByText("heat: 2,")).toBeTruthy();
   // offset_s = mile * 54, so 2 h in all three trucks have passed the last checkpoint (mile 50).
   expect(screen.getByText("trucks: -100 41 | -100 41 | -100 41")).toBeTruthy();
@@ -243,7 +244,7 @@ test("play advances the forecast hour", async () => {
 test("the layer toggle switches the heatmap variable and its legend; Off hides both", async () => {
   renderApp(Response.json(PLAN));
   await screen.findByText("heat: 0,");
-  expect(within(screen.getByRole("region", { name: "Legend" })).getByText("Severe")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Legend" })).getByText("Sev")).toBeTruthy();
 
   fireEvent.click(screen.getByRole("radio", { name: "Wind" }));
   expect(screen.getByText("heat: 1,")).toBeTruthy();

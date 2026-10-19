@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
@@ -70,8 +70,12 @@ export default function App() {
     retry: false, // the backend already retries Open-Meteo; show the error and offer Retry
     staleTime: Infinity,
   });
-  const heat = layer !== "off" && heatmap.data ? { cells: heatmap.data.cells, levels: heatmap.data.levels[layer][hour] } : undefined;
-  const trucks = plan.data?.routes.map((r) => truckPosition(r, hour * 3600));
+  // Memoized so typing in the form doesn't rebuild the map layers.
+  const heat = useMemo(
+    () => (layer !== "off" && heatmap.data ? { cells: heatmap.data.cells, levels: heatmap.data.levels[layer][hour] } : undefined),
+    [heatmap.data, layer, hour],
+  );
+  const trucks = useMemo(() => plan.data?.routes.map((r) => truckPosition(r, hour * 3600)), [plan.data, hour]);
   const fieldError = (name: string) => {
     const e = plan.error?.status === 400 ? plan.error.body[name] : undefined;
     return Array.isArray(e) ? e[0] : undefined;

@@ -1,7 +1,7 @@
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { FeatureCollection } from "geojson";
-import { Truck } from "lucide-react";
+import { CircleDot, Flag, Truck } from "lucide-react";
 import {
   LngLatBounds,
   Map as MapLibreMap,
@@ -19,7 +19,7 @@ import { mapStyle } from "./mapStyle";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
 import styles from "./RouteMap.module.css";
-import { riskRgba, type Mode } from "./tokens/theme";
+import { riskRgba, type Mode, type Rgba } from "./tokens/theme";
 import { tokens } from "./tokens/tokens";
 
 type Props = {
@@ -31,6 +31,11 @@ type Props = {
 };
 
 type Cell = { position: [number, number]; level: number };
+
+const CELL_M = 25 * 1609.344; // backend grid spacing
+const EARTH_M = 40_075_016.686;
+// Low is a faint tint so hazards stand out; alpha rides in the color ramp because the heatmap has one opacity.
+const HEAT_ALPHA = [70, 150, 185, 215, 230];
 
 const CONTINENTAL_US: [number, number, number, number] = [-125, 24, -66, 50];
 const UNKNOWN = -1; // GeoJSON properties can't hold null usefully in match expressions
@@ -70,6 +75,8 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   const overlay = useRef<MapboxOverlay | null>(null);
   const markers = useRef<Marker[]>([]);
   const [truckEls, setTruckEls] = useState<HTMLElement[]>([]);
+  const [pinEls, setPinEls] = useState<HTMLElement[]>([]);
+  const [cellPx, setCellPx] = useState(0); // one grid cell on screen, so the blur follows zoom
 
   useEffect(() => {
     const mode = currentMode();
@@ -105,9 +112,15 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""));
       }
       m.on("movestart", () => setPopup(null));
-      // shortcut: deck 9.4's interleaved mode reads map.transform, which MapLibre 6 no longer exposes, so the
-      // heatmap draws as an overlay above the routes; switch to interleaved + beforeId once deck supports MapLibre 6.
-      overlay.current = new MapboxOverlay({ interleaved: false, layers: [] });
+      const measure = () => setCellPx(CELL_M / ((EARTH_M * Math.cos((m.getCenter().lat * Math.PI) / 180)) / (512 * 2 ** m.getZoom())));
+      m.on("zoom", measure);
+      measure();
+      // shortcut: deck 9.4's interleaved mode reads map.transform.height, which MapLibre 6 no longer exposes;
+      // drop this shim once deck supports MapLibre 6. Interleaved lets the heatmap sit under the routes.
+      if (!(m as unknown as { transform?: unknown }).transform) {
+        Object.defineProperty(m, "transform", { get: () => ({ height: m.getCanvas().clientHeight }) });
+      }
+      overlay.current = new MapboxOverlay({ interleaved: true, layers: [] });
       m.addControl(overlay.current);
     });
     map.current = m;
@@ -134,14 +147,17 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   useEffect(() => {
     const m = map.current;
     if (!m) return;
-    const colorRange = Object.values(riskRgba(currentMode())).slice(0, 5); // low … notravel, Unknown cells are dropped
+    // low … notravel; Unknown cells are dropped
+    const colorRange = Object.values(riskRgba(currentMode()))
+      .slice(0, 5)
+      .map(([r, g, b], i): Rgba => [r, g, b, HEAT_ALPHA[i]]);
     const data: Cell[] = heat
       ? heat.cells.flatMap((position, i) => (heat.levels[i] === null ? [] : [{ position, level: heat.levels[i] as number }]))
       : [];
     whenLoaded(m, () =>
       overlay.current?.setProps({
         layers: [
-          new HeatmapLayer<Cell>({
+          new HeatmapLayer<Cell, { beforeId: string }>({
             id: "heat",
             data,
             visible: !!heat,
@@ -152,20 +168,22 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
             aggregation: "MEAN",
             colorDomain: [0.5, 5],
             colorRange,
-            radiusPixels: 48,
-            opacity: 0.45,
+            // deck's Gaussian is ~1% by half the radius, so ~4 cells of radius blends neighbours into one field.
+            radiusPixels: Math.min(250, Math.max(16, cellPx * 4)),
+            opacity: 0.8,
+            beforeId: "route-casing", // read by MapboxOverlay: heat under the route lines
           }),
         ],
       }),
     );
-  }, [heat]);
+  }, [heat, cellPx]);
 
   const truckCount = trucks?.length ?? 0;
   useEffect(() => {
     const m = map.current;
     if (!m) return;
-    const els = Array.from({ length: truckCount }, () => document.createElement("div"));
-    markers.current = els.map((el) => new Marker({ element: el }).setLngLat([0, 0]));
+    const els = Array.from({ length: truckCount }, () => Object.assign(document.createElement("div"), { style: "z-index: 1" })); // above the pins
+    markers.current = els.map((el) => new Marker({ element: el }).setLngLat([0, 0]).addTo(m));
     setTruckEls(els);
     return () => markers.current.forEach((mk) => mk.remove());
   }, [truckCount]);
@@ -173,8 +191,19 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   useEffect(() => {
     const m = map.current;
     if (!m || !trucks) return;
-    whenLoaded(m, () => trucks.forEach((t, i) => markers.current[i]?.setLngLat(t).addTo(m)));
+    trucks.forEach((t, i) => markers.current[i]?.setLngLat(t));
   }, [trucks]);
+
+  useEffect(() => {
+    const m = map.current;
+    const cps = routes?.[0]?.checkpoints;
+    if (!m || !cps?.length) return;
+    const ends = [cps[0], cps[cps.length - 1]];
+    const els = ends.map(() => document.createElement("div"));
+    const pins = els.map((el, i) => new Marker({ element: el }).setLngLat([ends[i].lon, ends[i].lat]).addTo(m));
+    setPinEls(els);
+    return () => pins.forEach((p) => p.remove());
+  }, [routes]);
 
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];
   return (
@@ -183,6 +212,14 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
         createPortal(
           <div className={`${styles.truck} ${i === selected ? styles.selected : ""}`} aria-hidden>
             <Truck />
+          </div>,
+          el,
+        ),
+      )}
+      {pinEls.map((el, i) =>
+        createPortal(
+          <div className={styles.pin} aria-hidden>
+            {i === 0 ? <CircleDot /> : <Flag />}
           </div>,
           el,
         ),

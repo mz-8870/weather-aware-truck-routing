@@ -20,3 +20,19 @@
   background: var(--color-brand);
   color: var(--color-on-brand);
 }
+
+.pin {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  border: medium solid var(--map-route-casing);
+  border-radius: var(--radius-full);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.pin svg {
+  width: calc(var(--space-3) + var(--space-1) / 2);
+  height: calc(var(--space-3) + var(--space-1) / 2);
+}
