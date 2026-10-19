@@ -1,22 +1,36 @@
+import { HeatmapLayer } from "@deck.gl/aggregation-layers";
+import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { FeatureCollection } from "geojson";
+import { Truck } from "lucide-react";
 import {
   LngLatBounds,
   Map as MapLibreMap,
+  Marker,
   NavigationControl,
   type ExpressionSpecification,
   type GeoJSONSource,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
 import { Popover } from "./components/Popover";
 import { mapStyle } from "./mapStyle";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
-import type { Mode } from "./tokens/theme";
+import styles from "./RouteMap.module.css";
+import { riskRgba, type Mode } from "./tokens/theme";
 import { tokens } from "./tokens/tokens";
 
-type Props = { routes?: Route[]; selected: number; onSelect: (index: number) => void };
+type Props = {
+  routes?: Route[];
+  selected: number;
+  onSelect: (index: number) => void;
+  heat?: { cells: [number, number][]; levels: (number | null)[] }; // one forecast hour of one variable
+  trucks?: [number, number][]; // [lon, lat] per route at the slider hour
+};
+
+type Cell = { position: [number, number]; level: number };
 
 const CONTINENTAL_US: [number, number, number, number] = [-125, 24, -66, 50];
 const UNKNOWN = -1; // GeoJSON properties can't hold null usefully in match expressions
@@ -40,20 +54,25 @@ function routeData(routes: Route[] = [], selected = 0): FeatureCollection {
   };
 }
 
+const currentMode = (): Mode => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
 function whenLoaded(m: MapLibreMap, fn: () => void) {
   if (m.getSource("route")) fn();
   else m.once("load", fn);
 }
 
-export function RouteMap({ routes, selected, onSelect }: Props) {
+export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const select = useRef(onSelect);
   select.current = onSelect;
   const [popup, setPopup] = useState<{ index: number; x: number; y: number } | null>(null);
+  const overlay = useRef<MapboxOverlay | null>(null);
+  const markers = useRef<Marker[]>([]);
+  const [truckEls, setTruckEls] = useState<HTMLElement[]>([]);
 
   useEffect(() => {
-    const mode: Mode = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const mode = currentMode();
     const c = (name: keyof typeof tokens.color) => tokens.color[name][mode];
     const riskColor = [
       "match",
@@ -86,6 +105,10 @@ export function RouteMap({ routes, selected, onSelect }: Props) {
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""));
       }
       m.on("movestart", () => setPopup(null));
+      // shortcut: deck 9.4's interleaved mode reads map.transform, which MapLibre 6 no longer exposes, so the
+      // heatmap draws as an overlay above the routes; switch to interleaved + beforeId once deck supports MapLibre 6.
+      overlay.current = new MapboxOverlay({ interleaved: false, layers: [] });
+      m.addControl(overlay.current);
     });
     map.current = m;
     return () => m.remove();
@@ -108,9 +131,62 @@ export function RouteMap({ routes, selected, onSelect }: Props) {
     });
   }, [routes]);
 
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const colorRange = Object.values(riskRgba(currentMode())).slice(0, 5); // low … notravel, Unknown cells are dropped
+    const data: Cell[] = heat
+      ? heat.cells.flatMap((position, i) => (heat.levels[i] === null ? [] : [{ position, level: heat.levels[i] as number }]))
+      : [];
+    whenLoaded(m, () =>
+      overlay.current?.setProps({
+        layers: [
+          new HeatmapLayer<Cell>({
+            id: "heat",
+            data,
+            visible: !!heat,
+            getPosition: (d) => d.position,
+            // deck colors by weight / colorDomain[1] across texel centers (k + 0.5) / 5, so level k needs weight k + 0.5;
+            // colorDomain[0] only fades alpha, and 0.5 keeps every level opaque (Low must not read as "no data").
+            getWeight: (d) => d.level + 0.5,
+            aggregation: "MEAN",
+            colorDomain: [0.5, 5],
+            colorRange,
+            radiusPixels: 48,
+            opacity: 0.45,
+          }),
+        ],
+      }),
+    );
+  }, [heat]);
+
+  const truckCount = trucks?.length ?? 0;
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const els = Array.from({ length: truckCount }, () => document.createElement("div"));
+    markers.current = els.map((el) => new Marker({ element: el }).setLngLat([0, 0]));
+    setTruckEls(els);
+    return () => markers.current.forEach((mk) => mk.remove());
+  }, [truckCount]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !trucks) return;
+    whenLoaded(m, () => trucks.forEach((t, i) => markers.current[i]?.setLngLat(t).addTo(m)));
+  }, [trucks]);
+
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];
   return (
     <div ref={container} style={{ position: "absolute", inset: 0 }}>
+      {truckEls.map((el, i) =>
+        createPortal(
+          <div className={`${styles.truck} ${i === selected ? styles.selected : ""}`} aria-hidden>
+            <Truck />
+          </div>,
+          el,
+        ),
+      )}
       {checkpoint && (
         <Popover
           open

@@ -1,9 +1,11 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
+import { ForecastControls } from "./ForecastControls";
+import { fetchHeatmap, heatmapQuery, truckPosition, type Variable } from "./heatmap";
 import { SegmentedControl } from "./components/SegmentedControl";
 import { Toast, ToastProvider } from "./components/Toast";
 import { LocationField, type Place } from "./LocationField";
@@ -50,13 +52,26 @@ export default function App() {
   const [picked, setPicked] = useState<{ origin?: Place; destination?: Place }>({});
   const [selected, setSelected] = useState(0); // routes come best first, so 0 is the recommendation
   const [expanded, setExpanded] = useState(false);
+  const [layer, setLayer] = useState<Variable | "off">("risk");
+  const [hour, setHour] = useState(0);
   const plan = useMutation<Plan, ApiError, Trip>({
     mutationFn: planTrip,
     onSuccess: () => {
       setSelected(0);
       setExpanded(false);
+      setHour(0);
     },
   });
+  // Loads after the routes so it never blocks them; the slider then only indexes into this one response.
+  const heatmap = useQuery({
+    queryKey: ["heatmap", plan.submittedAt],
+    queryFn: () => fetchHeatmap(heatmapQuery(plan.data!.routes, plan.variables!.departure, plan.data!.cargo_lb)),
+    enabled: !!plan.data,
+    retry: false, // the backend already retries Open-Meteo; show the error and offer Retry
+    staleTime: Infinity,
+  });
+  const heat = layer !== "off" && heatmap.data ? { cells: heatmap.data.cells, levels: heatmap.data.levels[layer][hour] } : undefined;
+  const trucks = plan.data?.routes.map((r) => truckPosition(r, hour * 3600));
   const fieldError = (name: string) => {
     const e = plan.error?.status === 400 ? plan.error.body[name] : undefined;
     return Array.isArray(e) ? e[0] : undefined;
@@ -199,7 +214,18 @@ export default function App() {
               )}
             </aside>
             <main className={styles.map}>
-              <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} />
+              <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
+              {plan.data && plan.variables && (
+                <ForecastControls
+                  layer={layer}
+                  onLayer={setLayer}
+                  hour={hour}
+                  onHour={setHour}
+                  departure={plan.variables.departure}
+                  status={heatmap.status}
+                  onRetry={() => heatmap.refetch()}
+                />
+              )}
             </main>
           </div>
         </div>

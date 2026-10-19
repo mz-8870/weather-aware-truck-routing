@@ -27,18 +27,12 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | Code worktree | `C:\dev\wtr-issues` |
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
-## Resume here (paused by the user, 2026-10-20)
-1. **Merge queue** (stacked branches, merge in this order, each only after CI is green **on its head commit** — PATTERNS rule 12):
-   - PR #24 (#10 weight modes, branch `issue-10-weight-modes`, head `e3d3aa7`) — reviewer APPROVED.
-   - PR #25 (#11 units, branch `issue-11-units-time`, head `6e23d37`) — reviewer APPROVED. After #24 merges its diff shrinks to the #11 commits.
-   - GitHub had an open incident ("Degraded availability for GitHub Actions…") — runs sat `queued` for hours with no runner. Check with `gh run list --branch <branch> --limit 3`; `gh pr checks` can show a stale duplicate run as pending (it did for #23 — the head-commit run had passed).
-2. **#12 heatmap is half-built and uncommitted** in `C:\dev\wtr-issues` on branch `issue-12-heatmap` (stacked on `issue-11-units-time`):
-   - Done: `npm i @deck.gl/core @deck.gl/layers @deck.gl/aggregation-layers @deck.gl/mapbox` (9.4.0; `frontend/package*.json` changed); `backend/heatmap.py` `corridor_grid` (fixed global lattice, ~25 mi rows/columns, cells ≤50 mi from any route point) + `backend/tests/test_heatmap.py` (grid + endpoint contract tests, written first); `POST /api/heatmap` view + URL in `config/views.py` / `config/urls.py`.
-   - **Known failing:** `HeatmapSerializer.points = ListField(child=PositionField(required=True), …)` → `TypeError: got multiple values for keyword argument 'required'` (PositionField hard-codes `required=False`). Fix: `child=PositionField()` won't validate presence inside a list anyway, so just drop the kwarg. Then run `tests/test_heatmap.py`.
-   - Endpoint contract (tests define it): body `{points: [[lat, lon]…] (1–2000, the routes' checkpoint positions), departure ISO, cargo_lb ≥ 0}` → `{hours: [49 ISO hours from the departure hour], cells: [[lon, lat]…], levels: {risk, wind, rain, snow: [hour][cell] → 0–4 | null]}}`; risk uses cargo + load rules, the others classify their own variable alone; every reading Unknown → 502 `{"detail": "Weather layer didn't load."}`. Reuses `weather.readings` (one chunked batch, cache).
-   - Frontend plan (not started): query `/api/heatmap` after a plan succeeds (non-blocking); deck.gl `MapboxOverlay` + `HeatmapLayer` (`aggregation: "MEAN"`, weight = level, `colorDomain [0,4]`, `colorRange` = risk tokens via `riskRgba`, semi-transparent; `updateTriggers` on hour/variable so scrubbing never refetches); layer pill "Heatmap: Risk / Wind / Rain / Snow / Off" (top-left); legend (top-right) "Risk along corridor" + band labels per variable in current units + line key (Recommended route / Alternative); bottom slider dock (play/pause, "Forecast hour", readout "+3 h · Tue 11:00", ticks 0/12/24/36/48 h); truck markers per route at departure + hour, interpolated between checkpoints by `offset_s` (MapLibre DOM `Marker` with lucide `Truck`: selected route brand fill, others surface + border-strong); chip "Loading weather layer…" while loading, "Weather layer didn't load" + Retry on failure (screens 07, 04, 10c). Keep slider/legend/toggle outside `RouteMap` so App tests (RouteMap is mocked) can cover them; pure `truckPosition(route, seconds)` gets a Vitest.
-3. Then #13 → #16 in order.
-4. Dev servers from the last session may still be running: Django :8000 (autoreload) and Vite :5179.
+## Resume here (2026-10-20)
+1. **#12 heatmap** — PR open from `issue-12-heatmap` (now based on main; #10 and #11 merged). Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
+2. **Design-audit PR** (`design-audit-fixes`, worktree `C:\dev\wtr-audit`, cut from main): impeccable-criteria fixes (box-sizing, results scroll into view, route card semantics, hover states, tabular nums, 44px segmented items…). It may conflict with #12 in `App.tsx`/`App.test.tsx`; merge one, then rebase-free merge main into the other. Report with before/after screenshots: `design-audit.html` in the session scratchpad `audit/` folder.
+3. Audit findings deferred to later tickets: checkpoint details keyboard access + active checkpoint marker + origin/destination pins (map, fold into #13/#15), `risk-moderate` contrast 2.25:1 and High vs Severe hue distance (needs a Pencil token change — user's call), dark map style + mobile (#14), placeholder brand mark, "Why Low" copy.
+4. Then #13 → #16 in order.
+5. Dev servers: Django :8000 (autoreload) and Vite :5179 (wtr-issues).
 
 ## Status (2026-10-20)
 | # | Ticket | State |
@@ -52,9 +46,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 7 | Checkpoints + weather risk | ✅ merged (#21) |
 | 8 | Three routes + recommendation | ✅ merged (#22) |
 | 9 | Location autosuggest | ✅ merged (#23) |
-| 10 | Weight modes + truck params | PR #24 approved; merge once CI is green on `e3d3aa7` |
-| 11 | Units + time display | PR #25 approved; merge after #24, once CI is green on `6e23d37` |
-| 12 | Heatmap + slider + trucks | In progress, uncommitted (see Resume here) |
+| 10 | Weight modes + truck params | ✅ merged (#24) |
+| 11 | Units + time display | ✅ merged (#25) |
+| 12 | Heatmap + slider + trucks | PR open (see Resume here) |
 | 13–16 | — | Not started |
 
 ## Decisions not obvious from the spec
@@ -74,6 +68,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Open-Meteo overload (2026-10-19):** it intermittently answers 503 "service is overloaded" or takes ~38 s per 50 locations. We retry a 503/429 once after 1 s; a 3-route plan took ~40 s live. **Vercel risk for deploy:** Python functions default to a short max duration — set `maxDuration` (≥60) in `vercel.json` for `api/index.py` or plans will time out.
 - **Detours:** each via attempt is a sequential TomTom call (up to 4) + one reverse geocode; duplicates (distance and time within 1%) and failures are skipped, so <3 routes is possible and the UI says so.
 - **Perf note for #15:** Seattle→Miami at 10 mi = 336 checkpoints, ~1 MB JSON (almost all TomTom geometry, 42k points), 4–6 s. Simplify segment geometry for display if 3 routes make it too heavy.
+- **Heatmap (#12):** `POST /api/heatmap {points [[lat, lon]…] 1–2000, departure, cargo_lb}` → `{hours[49], cells [[lon, lat]], levels {risk|wind|rain|snow: [hour][cell] 0–4|null}}` (`heatmap.corridor_grid`: fixed global ~25 mi lattice, cells ≤50 mi from any route point; all-Unknown → 502 "Weather layer didn't load."). Frontend: `useQuery(["heatmap", plan.submittedAt])` after a plan (retry off, staleTime ∞), so scrubbing only indexes `levels[layer][hour]`. `ForecastControls` (layer pill, legend with band bounds in current units, play/slider dock, loading/error chips) lives outside `RouteMap` so App tests cover it; `truckPosition(route, seconds)` interpolates by checkpoint `offset_s`. Trucks are MapLibre DOM `Marker`s with a portaled lucide `Truck`.
+- **deck.gl + MapLibre 6:** `MapboxOverlay({interleaved: true})` crashes (`map.transform` is gone in MapLibre 6), so the heatmap is a non-interleaved overlay drawn above the route lines (opacity 0.45). HeatmapLayer colors by `weight / colorDomain[1]` sampled at texel centers — level k needs weight `k + 0.5`, `colorDomain [0.5, 5]`; `colorDomain[0]` only fades alpha.
+- **Perf note for #15 (heatmap):** cells grow with route length (~1,100 for coast-to-coast) and Open-Meteo cost is per location (50/request, 4 parallel) — long trips can take a minute+. Consider 50 mi spacing for long routes if it's too slow.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user
