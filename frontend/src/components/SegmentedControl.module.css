@@ -28,6 +28,9 @@
 }
 
 .item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   height: calc(var(--control-height) - 2 * var(--space-1)); /* root padding; the whole control is one control-height */
   padding: 0 var(--space-3);
   border: thin solid transparent;
@@ -48,4 +51,9 @@
 
 .item:focus-visible {
   outline: medium solid var(--color-focus-ring);
+}
+
+.icon {
+  width: var(--space-4);
+  height: var(--space-4);
 }

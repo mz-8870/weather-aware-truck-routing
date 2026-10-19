@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 import ranking
+from heatmap import corridor_grid
 import risk
 import tomtom
 import weather
@@ -190,3 +191,49 @@ def _route_json(name, route, summary, cps, etas, readings, results) -> dict:
         ],
         "segments": [{"level": _level(res), "coordinates": c.path} for c, res in zip(cps, results)],
     }
+
+
+class HeatmapSerializer(serializers.Serializer):
+    points = serializers.ListField(child=PositionField(), min_length=1, max_length=2000)  # route [lat, lon]s
+    departure = serializers.DateTimeField()
+    cargo_lb = serializers.FloatField(min_value=0)
+
+
+HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
+MAX_CELLS = 1_500  # coast to coast with detours is ~1,150; caps Open-Meteo fan-out per anonymous request
+
+
+@api_view(["POST"])
+def heatmap(request: Request) -> Response:
+    """Per-variable risk levels on a corridor grid for every hour 0-48; the slider scrubs these client-side."""
+    data = HeatmapSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    d = data.validated_data
+    cells = corridor_grid([tuple(p) for p in d["points"]])
+    if len(cells) > MAX_CELLS:
+        return Response({"points": ["Routes cover too large an area for the weather layer."]}, status=400)
+    start = d["departure"].astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    hours = [start + timedelta(hours=h) for h in range(HEATMAP_HOURS)]
+    with tomtom.http_client() as client:
+        flat = weather.readings(client, [(lat, lon, hour) for hour in hours for lat, lon in cells])
+    if all(r == weather.UNKNOWN for r in flat):
+        return Response({"detail": "Weather layer didn't load."}, status=502)
+
+    def grid(level_of) -> list[list[int | None]]:
+        return [[_level(level_of(r)) for r in flat[h * len(cells) : (h + 1) * len(cells)]] for h in range(HEATMAP_HOURS)]
+
+    def one(r: weather.Reading, wind=0.0, rain=0.0, snow=0.0) -> risk.RiskResult:
+        return risk.classify(wind, rain, snow, 0, r.beyond_forecast)
+
+    return Response(
+        {
+            "hours": [h.isoformat() for h in hours],
+            "cells": [[lon, lat] for lat, lon in cells],
+            "levels": {
+                "risk": grid(lambda r: risk.classify(r.wind_mph, r.rain_in_hr, r.snow_in_hr, d["cargo_lb"], r.beyond_forecast)),
+                "wind": grid(lambda r: one(r, wind=r.wind_mph)),
+                "rain": grid(lambda r: one(r, rain=r.rain_in_hr)),
+                "snow": grid(lambda r: one(r, snow=r.snow_in_hr)),
+            },
+        }
+    )

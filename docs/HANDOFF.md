@@ -27,7 +27,14 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | Code worktree | `C:\dev\wtr-issues` |
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
-## Status (2026-10-19)
+## Resume here (2026-10-20)
+1. **#12 heatmap** — PR open from `issue-12-heatmap` (now based on main; #10 and #11 merged). Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
+2. **Design-audit PR** (`design-audit-fixes`, worktree `C:\dev\wtr-audit`, cut from main): impeccable-criteria fixes (box-sizing, results scroll into view, route card semantics, hover states, tabular nums, 44px segmented items…). It may conflict with #12 in `App.tsx`/`App.test.tsx`; merge one, then rebase-free merge main into the other. Report with before/after screenshots: `design-audit.html` in the session scratchpad `audit/` folder.
+3. Audit findings deferred to later tickets: checkpoint details keyboard access + active checkpoint marker + origin/destination pins (map, fold into #13/#15), `risk-moderate` contrast 2.25:1 and High vs Severe hue distance (needs a Pencil token change — user's call), dark map style + mobile (#14), placeholder brand mark, "Why Low" copy.
+4. Then #13 → #16 in order.
+5. Dev servers: Django :8000 (autoreload) and Vite :5179 (wtr-issues).
+
+## Status (2026-10-20)
 | # | Ticket | State |
 |---|---|---|
 | 1 | Walking skeleton | ✅ merged (#17). **Vercel deploy still needs the user** (import repo; env `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.vercel.app`, `TOMTOM_API_KEY`). Verify `/api/*` reaches Django on first deploy. |
@@ -39,9 +46,10 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 7 | Checkpoints + weather risk | ✅ merged (#21) |
 | 8 | Three routes + recommendation | ✅ merged (#22) |
 | 9 | Location autosuggest | ✅ merged (#23) |
-| 10 | Weight modes + truck params | PR #24 approved; merge once CI runs on its head |
-| 11 | Units + time display | PR open (branch `issue-11-units-time`, stacked on #10) |
-| 12–16 | — | Not started; #12 next |
+| 10 | Weight modes + truck params | ✅ merged (#24) |
+| 11 | Units + time display | ✅ merged (#25) |
+| 12 | Heatmap + slider + trucks | PR open (see Resume here) |
+| 13–16 | — | Not started |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -52,6 +60,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **`/api/plan` (as of #8):** `POST {origin, destination, departure ISO, weight_lb, interval_mi 10|25|50 (default 25)}` → `{routes (best first, named Route A/B/C), recommended: 0|null, why, routes_found, cargo_lb}`; each route `{name, distance_mi, duration_s, synthesized, detour_via, summary:{severe_mi, high_mi, unknown_mi, notravel_mi, avg_risk}, checkpoints:[{mile, lat, lon, offset_s, eta, level 0–4|null, reasons, beyond_forecast, wind_mph, gust_mph, rain_in_hr, snow_in_hr, owned_mi}], segments:[{level, coordinates}]}`. 400 field errors, 422 `{detail}` (place not found / no route), 502 TomTom down. Optional `origin_position` / `destination_position` `[lat, lon]` (from autosuggest) skip text geocoding; typed text still falls back to US-only fuzzy geocoding. `GET /api/geocode?q=` → `{suggestions:[{label, kind, lat, lon}]}` (TomTom typeahead, US, 5 results; <3 chars → [] without calling TomTom; 502 on TomTom failure). Weight: `weight_lb` + `weight_mode` cargo (default) | gross, `empty_truck_lb` (default 35,000), optional `axle_count` (2–12) / `axle_weight_lb`. Serializer derives `gross_lb` (sent to TomTom as `vehicleWeight` kg) and `cargo_lb` (risk load rules; gross mode floors at 0). Axle params go to TomTom (`vehicleNumberOfAxles`, `vehicleAxleWeight` kg — names verified live: TomTom 400s unknown params) only when set. Frontend warns (amber, non-blocking) above 80,000 lb gross.
 - **Map:** MapLibre + OpenFreeMap tiles (no key), style in `frontend/src/mapStyle.ts` from `map-*` tokens. Vite needs `optimizeDeps.exclude: ["maplibre-gl"]` or the worker 404s in dev.
 - **Backend modules:** `tomtom.py` (geocode; `truck_routes` with `maxAlternatives=2`, or one route through a `via`; `detour_vias` = points off the midpoint ±15%/±30% perpendicular; `place_name` reverse geocode), `ranking.py` (pure: `summarize` owned miles per level → `Summary`; `rank` = No Travel last, then severe mi, high mi, avg risk, time; `why` text names the deciding factor vs Route B), `checkpoints.py` (pure: sampling, ETA interpolation, owned miles, paths), `weather.py` (batched Open-Meteo, chunks of 50 × 4 in parallel, own 30 s timeout — cold replies for 100 locations took 12–23 s, LRU cache keyed (lat 2dp, lon 2dp, UTC hour); outage → Unknown readings, not cached), `risk.py`. One httpx client per request is shared by TomTom + Open-Meteo, so tests mock both via one `MockTransport`.
+- **Stacked branches:** while CI was down, each issue branch was cut from the previous unmerged one (#10 ← #9, #11 ← #10, #12 ← #11) so work could continue. PR bodies say which commit is theirs; once the base merges, the diff narrows on its own (merge commits, no rebase needed).
 - **Units (#11):** `units.ts` `formatter(units)` (distance/interval/wind/rain/snow/weight, metric = km, km/h, mm/hr, cm/hr, kg), `convertText` (rewrites backend imperial text; `{original: true}` keeps "(47 mph)" beside the metric value — used for rules), `lbFromInput` (whole lb). `UnitsContext`/`useUnits()` provides the formatter. Form keeps weights in **pounds** and only displays kg, so toggling never re-rounds. Units remembered in localStorage (`units`), default from locale region (US/LR/MM → imperial). Load-rule reasons now say "> 30,000 lb" so they convert.
 - **Frontend:** `LocationField` (ARIA combobox: 250 ms debounce, TanStack Query cache 5 min, ↑↓/Enter/Esc, mousedown pick; picking stores coordinates, typing drops them), `Results` (title/note, No Travel / detour / fewer-routes banners, `RouteCard`s; selecting a card expands to `CheckpointList` + emphasizes that route on the map; clicking a faded route on the map selects it), `format.ts` (shared display formatters), `plan.ts` (API types + `planTrip`), `risk.ts` (level → key/label/lucide icon), `CheckpointDetails` (popover body; copy from Pencil screen 06b), `RouteMap` (risk-colored segments + checkpoint circles; click → Radix popover anchored at the click point; closes on map move).
 - **TomTom timing:** `extendedRouteRepresentation=distance&extendedRouteRepresentation=travelTime` returns ~90 sparse `progress` keyframes `{pointIndex, distanceInMeters, travelTimeInSeconds}` per route (not per point) — interpolate checkpoint ETAs between them. Open-Meteo batch (comma lists) returns a list; rain is mm, snowfall cm, wind in mph when `wind_speed_unit=mph`.
@@ -59,10 +68,14 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Open-Meteo overload (2026-10-19):** it intermittently answers 503 "service is overloaded" or takes ~38 s per 50 locations. We retry a 503/429 once after 1 s; a 3-route plan took ~40 s live. **Vercel risk for deploy:** Python functions default to a short max duration — set `maxDuration` (≥60) in `vercel.json` for `api/index.py` or plans will time out.
 - **Detours:** each via attempt is a sequential TomTom call (up to 4) + one reverse geocode; duplicates (distance and time within 1%) and failures are skipped, so <3 routes is possible and the UI says so.
 - **Perf note for #15:** Seattle→Miami at 10 mi = 336 checkpoints, ~1 MB JSON (almost all TomTom geometry, 42k points), 4–6 s. Simplify segment geometry for display if 3 routes make it too heavy.
+- **Heatmap (#12):** `POST /api/heatmap {points [[lat, lon]…] 1–2000, departure, cargo_lb}` (corridor >1,500 cells → 400 on `points`; coast to coast with detours ≈ 1,150) → `{hours[49], cells [[lon, lat]], levels {risk|wind|rain|snow: [hour][cell] 0–4|null}}` (`heatmap.corridor_grid`: fixed global ~25 mi lattice, cells ≤50 mi from any route point; all-Unknown → 502 "Weather layer didn't load."). Frontend: `useQuery(["heatmap", plan.submittedAt])` after a plan (retry off, staleTime ∞), so scrubbing only indexes `levels[layer][hour]`. `ForecastControls` (layer pill, legend with band bounds in current units, play/slider dock, loading/error chips) lives outside `RouteMap` so App tests cover it; `truckPosition(route, seconds)` interpolates by checkpoint `offset_s`. Trucks are MapLibre DOM `Marker`s with a portaled lucide `Truck`.
+- **deck.gl + MapLibre 6:** deck 9.4's interleaved mode reads `map.transform.height`, which MapLibre 6 removed; `RouteMap` shims `map.transform` (`shortcut:` comment) so the heatmap renders interleaved under the routes (`beforeId: "route-casing"`). HeatmapLayer colors by `weight / colorDomain[1]` sampled at texel centers — level k needs weight `k + 0.5`, `colorDomain [0.5, 5]`; `colorDomain[0]` only fades alpha. Per-level alpha rides in `colorRange` (Low faint, hazards strong). Its Gaussian is ~1% at half the radius, so `radiusPixels` ≈ 4 grid cells, recomputed on zoom.
+- **Design-system change (2026-10-20, user-approved):** light `risk-moderate` #D9A514→#AD8200 (3.5:1 on white), `risk-high` #D86A12→#E06A10, `risk-severe` #B8241C→#961A22 (High vs Severe 1.81→2.53). Dark values unchanged. Set in the `.pen` variables and `tokens.ts`.
+- **Perf note for #15 (heatmap):** cells grow with route length (~1,100 for coast-to-coast) and Open-Meteo cost is per location (50/request, 4 parallel) — long trips can take a minute+. Consider 50 mi spacing for long routes if it's too slow.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user
-- GitHub Actions runs sat **queued** for 15+ min on 2026-10-19 (runner backlog); merges wait for CI on the head commit (PATTERNS rule 12).
+- GitHub Actions incident on 2026-10-19/20: runs queued for hours; nothing can merge until CI runs (PATTERNS rule 12). A CI watcher also once died with "error connecting to api.github.com" — that is the watcher, not a CI failure.
 - Vercel project setup (above).
 - An empty frame named "Frame" at 0,0 in the `.pen` — user hasn't said whether to delete it.
 - Make the repo public before submission (#16).

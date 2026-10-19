@@ -94,12 +94,13 @@ def _fetch(client: httpx.Client, keys: list[Key]) -> dict[Key, Reading]:
 def readings(client: httpx.Client, points: list[tuple[float, float, datetime]]) -> list[Reading]:
     keys = [_key(*p) for p in points]
     missing = [k for k in dict.fromkeys(keys) if k not in _cache]
-    if missing:
-        for key, reading in _fetch(client, missing).items():
-            _cache[key] = reading
-            if len(_cache) > CACHE_SIZE:
-                _cache.popitem(last=False)
+    fetched = _fetch(client, missing) if missing else {}
+    for key, reading in fetched.items():
+        _cache[key] = reading
+        if len(_cache) > CACHE_SIZE:
+            _cache.popitem(last=False)
     for k in keys:
         if k in _cache:
             _cache.move_to_end(k)
-    return [_cache.get(k, UNKNOWN) for k in keys]
+    # Read this request's own fetch first: a batch bigger than the cache evicts its earliest keys.
+    return [fetched.get(k) or _cache.get(k, UNKNOWN) for k in keys]

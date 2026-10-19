@@ -7,10 +7,11 @@ type Props = {
   min: number;
   max: number;
   step?: number;
+  valueText?: string; // what a screen reader announces instead of the bare number
   onChange: (value: number) => void;
 };
 
-export function Slider({ label, value, min, max, step = 1, onChange }: Props) {
+export function Slider({ label, value, min, max, step = 1, valueText, onChange }: Props) {
   return (
     <RadixSlider.Root
       className={styles.root}
@@ -23,7 +24,7 @@ export function Slider({ label, value, min, max, step = 1, onChange }: Props) {
       <RadixSlider.Track className={styles.track}>
         <RadixSlider.Range className={styles.range} />
       </RadixSlider.Track>
-      <RadixSlider.Thumb className={styles.thumb} aria-label={label} />
+      <RadixSlider.Thumb className={styles.thumb} aria-label={label} aria-valuetext={valueText} />
     </RadixSlider.Root>
   );
 }

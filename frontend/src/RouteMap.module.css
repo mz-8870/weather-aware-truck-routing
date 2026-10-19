@@ -1,0 +1,38 @@
+.truck {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  border: medium solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 thin var(--space-1) var(--color-shadow);
+}
+
+.truck svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.selected {
+  border-color: var(--color-surface);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.pin {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  border: medium solid var(--map-route-casing);
+  border-radius: var(--radius-full);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.pin svg {
+  width: calc(var(--space-3) + var(--space-1) / 2);
+  height: calc(var(--space-3) + var(--space-1) / 2);
+}
