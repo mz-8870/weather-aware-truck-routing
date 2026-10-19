@@ -1,0 +1,38 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: thin solid transparent;
+  border-radius: var(--radius-md);
+  font: 600 var(--text-sm) var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+
+.button:focus-visible {
+  outline: medium solid var(--color-focus-ring);
+  outline-offset: thin;
+}
+
+.primary {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.primary:hover {
+  background: var(--color-brand-hover);
+}
+
+.secondary {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-brand);
+}
