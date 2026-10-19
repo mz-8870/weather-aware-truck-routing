@@ -166,12 +166,16 @@ def test_no_route_returns_422(client: Client, tomtom_api: FakeTomTom) -> None:
     tomtom_api.handler = lambda request: (
         tomtom_ok(request) if request.url.path.startswith("/search/") else httpx.Response(200, json={"routes": []})
     )
-    assert post(client, trip()).status_code == 422
+    response = post(client, trip())
+    assert response.status_code == 422
+    assert response.json()["code"] == "no_route"  # the UI shows its own "no drivable route" state
 
 
 def test_unknown_place_returns_422(client: Client, tomtom_api: FakeTomTom) -> None:
     tomtom_api.handler = lambda request: httpx.Response(200, json={"results": []})
-    assert post(client, trip()).status_code == 422
+    response = post(client, trip())
+    assert response.status_code == 422
+    assert "code" not in response.json()
 
 
 def test_tomtom_no_route_error_returns_422(client: Client, tomtom_api: FakeTomTom) -> None:
@@ -179,7 +183,9 @@ def test_tomtom_no_route_error_returns_422(client: Client, tomtom_api: FakeTomTo
     tomtom_api.handler = lambda request: (
         tomtom_ok(request) if request.url.path.startswith("/search/") else httpx.Response(400, json=no_route)
     )
-    assert post(client, trip()).status_code == 422
+    response = post(client, trip())
+    assert response.status_code == 422
+    assert response.json()["code"] == "no_route"
 
 
 def test_other_tomtom_400_returns_502(client: Client, tomtom_api: FakeTomTom) -> None:

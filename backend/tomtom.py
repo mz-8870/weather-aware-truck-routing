@@ -36,6 +36,10 @@ class NotFound(Exception):
     """TomTom answered, but found no location or no truck route."""
 
 
+class NoRoute(NotFound):
+    """Both places were found, but no truck can drive between them."""
+
+
 def http_client() -> httpx.Client:
     return httpx.Client(timeout=15)
 
@@ -44,7 +48,7 @@ def _get(client: httpx.Client, path: str, params: dict) -> dict:
     try:
         response = client.get(API + path, params={**params, "key": settings.TOMTOM_API_KEY})
         if response.status_code == 400 and "NO_ROUTE_FOUND" in response.text:
-            raise NotFound("No truck route found for this trip.")
+            raise NoRoute("No truck route found for this trip.")
         response.raise_for_status()
         return response.json()
     except (httpx.HTTPError, ValueError) as e:
@@ -122,7 +126,7 @@ def truck_routes(
         },
     )
     if not body.get("routes"):
-        raise NotFound("No truck route found for this trip.")
+        raise NoRoute("No truck route found for this trip.")
     routes = [
         Route(
             points=[(p["latitude"], p["longitude"]) for leg in r["legs"] for p in leg["points"]],
