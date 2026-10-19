@@ -1,0 +1,12 @@
+# Built on Vercel from source; never upload local secrets, envs or build output.
+backend/.env
+.env.local
+**/.venv
+**/node_modules
+**/__pycache__
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+frontend/tsconfig.tsbuildinfo
+.playwright-mcp
+design
