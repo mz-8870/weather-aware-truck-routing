@@ -32610,7 +32610,7 @@
       "type": "color",
       "value": [
         {
-          "value": "#D9A514",
+          "value": "#AD8200",
           "theme": {
             "mode": "light"
           }
@@ -32644,7 +32644,7 @@
       "type": "color",
       "value": [
         {
-          "value": "#D86A12",
+          "value": "#E06A10",
           "theme": {
             "mode": "light"
           }
@@ -32678,7 +32678,7 @@
       "type": "color",
       "value": [
         {
-          "value": "#B8241C",
+          "value": "#961A22",
           "theme": {
             "mode": "light"
           }

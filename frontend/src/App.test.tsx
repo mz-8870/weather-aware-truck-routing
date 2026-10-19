@@ -1,16 +1,27 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
 vi.mock("./RouteMap", () => ({
-  RouteMap: ({ routes, selected }: { routes?: unknown[]; selected: number }) => (
+  RouteMap: ({ routes, selected, heat, trucks }: { routes?: unknown[]; selected: number; heat?: { levels: unknown[] }; trucks?: number[][] }) => (
     <div>
-      map: {routes?.length ?? 0} routes, selected {selected}
+      <div>
+        map: {routes?.length ?? 0} routes, selected {selected}
+      </div>
+      <div>heat: {heat ? heat.levels.join(",") : "none"}</div>
+      <div>trucks: {trucks?.map((t) => t.join(" ")).join(" | ")}</div>
     </div>
   ),
 }));
+
+// Radix Slider measures its thumb; jsdom has no ResizeObserver.
+class NoResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
 
 afterEach(() => {
   cleanup();
@@ -63,8 +74,20 @@ const SUGGESTIONS = {
   ],
 };
 
-function stubFetch(planResponse: Response | Error) {
+// Two cells; hour h has risk levels [h, null] so the slider position is visible in the mocked map.
+const HEATMAP = {
+  hours: Array.from({ length: 49 }, (_, h) => new Date(Date.UTC(2030, 0, 15, 15 + h)).toISOString()),
+  cells: [
+    [-100, 41],
+    [-99, 41],
+  ],
+  levels: Object.fromEntries(["risk", "wind", "rain", "snow"].map((v, i) => [v, Array.from({ length: 49 }, (_, h) => [Math.min(4, h + i), null])])),
+};
+
+function stubFetch(planResponse: Response | Error, heatmapResponse: Response = Response.json(HEATMAP)) {
+  vi.stubGlobal("ResizeObserver", NoResizeObserver);
   const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+    if (url === "/api/heatmap") return heatmapResponse.clone();
     if (url.startsWith("/api/geocode")) {
       if (url.includes("q=Salt+Lak")) return Response.json({ suggestions: SUGGESTIONS.suggestions.slice(0, 1) });
       return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
@@ -79,8 +102,8 @@ function stubFetch(planResponse: Response | Error) {
 const planCall = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.find(([url]) => url === "/api/plan");
 const geocodeCalls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.filter(([url]) => url.startsWith("/api/geocode"));
 
-function renderApp(planResponse: Response | Error, spacing?: string) {
-  const fetchMock = stubFetch(planResponse);
+function renderApp(planResponse: Response | Error, spacing?: string, heatmapResponse?: Response) {
+  const fetchMock = stubFetch(planResponse, heatmapResponse);
   render(
     <QueryClientProvider client={new QueryClient()}>
       <App />
@@ -184,6 +207,67 @@ test("checkpoint spacing toggle changes the requested interval", async () => {
   const fetchMock = renderApp(Response.json(PLAN), "10 mi");
   await screen.findByText("3 routes · Route A recommended");
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).interval_mi).toBe(10);
+});
+
+const heatmapCalls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.filter(([url]) => url === "/api/heatmap");
+
+test("after routes appear the heatmap loads for every route's checkpoints; scrubbing never refetches", async () => {
+  const fetchMock = renderApp(Response.json(PLAN));
+  expect(await screen.findByText("heat: 0,")).toBeTruthy();
+  expect(JSON.parse(String(heatmapCalls(fetchMock)[0][1]?.body))).toEqual({
+    points: Array(9).fill([41, -100]),
+    departure: new Date("2030-01-15T08:00").toISOString(),
+    cargo_lb: 35000,
+  });
+  expect(screen.getByText("Risk along corridor")).toBeTruthy();
+  expect(screen.getByText("+0 h · Tue 08:00")).toBeTruthy();
+
+  const slider = screen.getByRole("slider", { name: "Forecast hour" });
+  fireEvent.keyDown(slider, { key: "ArrowRight" });
+  fireEvent.keyDown(slider, { key: "ArrowRight" });
+  expect(screen.getByText("+2 h · Tue 10:00")).toBeTruthy();
+  expect(slider.getAttribute("aria-valuetext")).toBe("+2 h, Tue 10:00");
+  expect(screen.getByText("heat: 2,")).toBeTruthy();
+  // offset_s = mile * 54, so 2 h in all three trucks have passed the last checkpoint (mile 50).
+  expect(screen.getByText("trucks: -100 41 | -100 41 | -100 41")).toBeTruthy();
+  expect(heatmapCalls(fetchMock)).toHaveLength(1);
+});
+
+test("play advances the forecast hour", async () => {
+  renderApp(Response.json(PLAN));
+  await screen.findByText("heat: 0,");
+  fireEvent.click(screen.getByRole("button", { name: "Play" }));
+  expect(await screen.findByText("+1 h · Tue 09:00", {}, { timeout: 2000 })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+});
+
+test("the layer toggle switches the heatmap variable and its legend; Off hides both", async () => {
+  renderApp(Response.json(PLAN));
+  await screen.findByText("heat: 0,");
+  expect(within(screen.getByRole("region", { name: "Legend" })).getByText("Sev")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Wind" }));
+  expect(screen.getByText("heat: 1,")).toBeTruthy();
+  expect(screen.getByText("Wind along corridor")).toBeTruthy();
+  expect(screen.getByText("≥ 45 mph")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Rain" }));
+  expect(screen.getByText("> 1.00 in/hr")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Off" }));
+  expect(screen.getByText("heat: none")).toBeTruthy();
+  expect(screen.queryByText("Rain along corridor")).toBeNull();
+});
+
+test("a heatmap failure leaves the routes usable and offers a retry", async () => {
+  const fetchMock = renderApp(Response.json(PLAN), undefined, Response.json({ detail: "Weather layer didn't load." }, { status: 502 }));
+  expect(await screen.findByText("Weather layer didn't load")).toBeTruthy();
+  expect(screen.getByText("3 routes · Route A recommended")).toBeTruthy();
+  expect(screen.getByText("heat: none")).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "Forecast hour" })).toBeTruthy(); // trucks still scrub
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(heatmapCalls(fetchMock)).toHaveLength(2));
 });
 
 test("server validation errors show inline under their fields", async () => {

@@ -19,9 +19,9 @@ test("tokensToCss writes light vars on :root and dark vars under data-theme=dark
 test("riskRgba gives deck.gl RGBA arrays per risk level from the same token source", () => {
   expect(riskRgba("light")).toEqual({
     low: [95, 138, 114, 255],
-    moderate: [217, 165, 20, 255],
-    high: [216, 106, 18, 255],
-    severe: [184, 36, 28, 255],
+    moderate: [173, 130, 0, 255],
+    high: [224, 106, 16, 255],
+    severe: [150, 26, 34, 255],
     notravel: [74, 24, 87, 255],
     unknown: [141, 142, 136, 255],
   });

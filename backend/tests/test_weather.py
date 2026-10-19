@@ -120,3 +120,9 @@ def test_overloaded_reply_is_retried_once(monkeypatch: pytest.MonkeyPatch) -> No
     client = httpx.Client(transport=httpx.MockTransport(lambda request: replies.pop(0)))
     (r,) = weather.readings(client, [(39.74, -104.99, HOURS[0])])
     assert r.wind_mph == 30.0
+
+
+def test_a_request_larger_than_the_cache_still_gets_all_its_readings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "CACHE_SIZE", 2)
+    points = [(39.0 + i / 10, -104.9, HOURS[0]) for i in range(5)]
+    assert weather.UNKNOWN not in weather.readings(FakeOpenMeteo().client(), points)
