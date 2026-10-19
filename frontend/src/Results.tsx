@@ -48,9 +48,13 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
   const heading = useRef<HTMLHeadingElement>(null);
+  const scrolledFor = useRef<Plan>(null);
 
-  // A new plan lands below the form, so bring its results into view.
+  // A new plan lands below the form, so bring its results into view. Once per plan: in Chromium a
+  // second smooth scroll in the same frame (StrictMode re-runs effects) cancels the first.
   useEffect(() => {
+    if (scrolledFor.current === plan) return;
+    scrolledFor.current = plan;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     heading.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
   }, [plan]);
