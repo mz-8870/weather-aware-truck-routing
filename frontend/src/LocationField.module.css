@@ -68,3 +68,10 @@
   color: var(--color-text-tertiary);
   font-size: var(--text-xs);
 }
+
+/* Arrow-key hints mean nothing on touch. */
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}

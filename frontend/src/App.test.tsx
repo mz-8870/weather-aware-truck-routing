@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
@@ -15,6 +15,14 @@ vi.mock("./RouteMap", () => ({
     </div>
   ),
 }));
+
+// jsdom has neither; App scrolls the results into view and checks the motion preference.
+let reducedMotion = false;
+beforeEach(() => {
+  reducedMotion = false;
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(prefers-reduced-motion: reduce)" && reducedMotion }));
+});
 
 // Radix Slider measures its thumb; jsdom has no ResizeObserver.
 class NoResizeObserver {
@@ -102,6 +110,8 @@ function stubFetch(planResponse: Response | Error, heatmapResponse: Response = R
 const planCall = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.find(([url]) => url === "/api/plan");
 const geocodeCalls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.filter(([url]) => url.startsWith("/api/geocode"));
 
+const card = (name: string) => screen.getByRole("article", { name });
+
 function renderApp(planResponse: Response | Error, spacing?: string, heatmapResponse?: Response) {
   const fetchMock = stubFetch(planResponse, heatmapResponse);
   render(
@@ -123,15 +133,15 @@ test("planning a trip shows three ranked route cards with the recommendation", a
 
   expect(await screen.findByText("3 routes · Route A recommended")).toBeTruthy();
   expect(screen.getByText("Ranked by severe miles, then high miles, average risk, travel time.")).toBeTruthy();
-  const a = screen.getByRole("button", { name: /^Route A/ });
+  const a = card("Route A");
   expect(a.textContent).toContain("Recommended");
   expect(a.textContent).toContain("15h 15m");
   expect(a.textContent).toContain("1,003.4 mi · arrives");
   expect(a.textContent).toContain("12.5 mi");
   expect(a.textContent).toContain(PLAN.why);
-  expect(screen.getByRole("button", { name: /^Route B/ }).textContent).not.toContain("Recommended");
-  expect(a.getAttribute("aria-pressed")).toBe("true");
-  expect(screen.getByRole("button", { name: /^Route B/ }).getAttribute("aria-pressed")).toBe("false");
+  expect(card("Route B").textContent).not.toContain("Recommended");
+  expect(screen.getByRole("button", { name: "Route A", description: /^Recommended 15h 15m 1,003\.4 mi · arrives/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Route B" }).getAttribute("aria-pressed")).toBe("false");
   expect(screen.getByText("map: 3 routes, selected 0")).toBeTruthy();
 
   const [, init] = planCall(fetchMock)!;
@@ -146,19 +156,41 @@ test("planning a trip shows three ranked route cards with the recommendation", a
   });
 });
 
+test("a route with no severe, high or unknown miles says so once instead of three zeros", async () => {
+  renderApp(Response.json(PLAN));
+  await screen.findByText("3 routes · Route A recommended");
+  expect(card("Route C").textContent).toContain("No severe, high or unknown miles");
+  expect(card("Route C").textContent).not.toContain("Severe");
+  expect(card("Route A").textContent).not.toContain("No severe, high or unknown miles");
+});
+
+test("a new plan scrolls its results heading into view", async () => {
+  renderApp(Response.json(PLAN));
+  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
+  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
+});
+
+test("the results scroll honors reduced motion", async () => {
+  reducedMotion = true;
+  renderApp(Response.json(PLAN));
+  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
+  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "auto" });
+});
+
 test("selecting a card emphasizes its route and lists its checkpoints", async () => {
   renderApp(Response.json(PLAN));
-  fireEvent.click(await screen.findByRole("button", { name: /^Route B/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Route B" }));
 
   expect(screen.getByText("map: 3 routes, selected 1")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /^Route B/ })).toBeNull(); // expanded card is not a dead button
+  expect(screen.queryByRole("button", { name: "Route B" })).toBeNull(); // expanded card is not a dead button
+  expect(card("Route B")).toBeTruthy();
   expect(screen.getByText("3 checkpoints")).toBeTruthy();
   expect(screen.getByText("#2 · mi 25")).toBeTruthy();
   expect(screen.getByText("Wind 38 mph")).toBeTruthy();
   expect(screen.getByText("No data")).toBeTruthy();
 
   fireEvent.click(screen.getByRole("button", { name: "All routes" }));
-  expect(screen.getByRole("button", { name: /^Route C/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Route C" })).toBeTruthy();
 });
 
 test("a route with No Travel gets a banner and ranks last", async () => {
@@ -170,7 +202,10 @@ test("a route with No Travel gets a banner and ranks last", async () => {
 
   expect(await screen.findByText("Route C crosses a No Travel zone")).toBeTruthy();
   expect(screen.getByText(/^12 mi around .+ — wind 58 mph\. Ranked last\.$/)).toBeTruthy();
-  expect(screen.getByRole("button", { name: /^Route C/ }).textContent).toContain("No Travel");
+  expect(card("Route C").textContent).toContain("No Travel");
+  expect(card("Route C").textContent).not.toContain("No severe, high or unknown miles"); // no all-clear on a blocked route
+  const described = screen.getByRole("button", { name: "Route C" }).getAttribute("aria-describedby")!.split(" ");
+  expect(described.map((id) => document.getElementById(id)?.textContent).join(" ")).toContain("No Travel"); // heard on focus
 });
 
 test("when every route is blocked there is no recommendation", async () => {
@@ -452,7 +487,7 @@ test("toggling units converts every number on screen without a new request; Undo
   await screen.findByText("3 routes · Route A recommended");
   fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
 
-  const a = screen.getByRole("button", { name: /^Route A/ });
+  const a = card("Route A");
   expect(a.textContent).toContain("1,614.8 km · arrives");
   expect(a.textContent).toContain("20.1 km"); // 12.5 high mi
   expect(a.textContent).toContain("Wins on high km: 20.1 km vs 77.2 km on Route B (both 0 severe).");
@@ -462,7 +497,7 @@ test("toggling units converts every number on screen without a new request; Undo
 
   expect(screen.getAllByText("Units switched to metric").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
-  expect(screen.getByRole("button", { name: /^Route A/ }).textContent).toContain("1,003.4 mi · arrives");
+  expect(card("Route A").textContent).toContain("1,003.4 mi · arrives");
 });
 
 test("a metric weight plans with the same pounds as the imperial one", async () => {

@@ -1,3 +1,19 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+::selection {
+  background: var(--color-brand-subtle);
+}
+
 body {
   margin: 0;
   background: var(--color-bg);
