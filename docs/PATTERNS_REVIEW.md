@@ -34,3 +34,4 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 | 10 | 2026-10-19 | 🟠 | Subagent skipped strict TDD on #1 and skipped the code-review step | TDD instructions arrived mid-run; review step not in the original prompt | Rule 5 |
 | 11 | 2026-10-19 | 🟡 | CI ran twice per PR (`push` + `pull_request` with no branch filter) | Default trigger copy-paste | `push: branches: [main]` + `pull_request` |
 | 12 | 2026-10-19 | 🟡 | Pencil MCP reported "no file open" while the user had it open | File opened from the old path / not the active tab | Confirm with `get_app_state` and tell the user exactly which path to open |
+| 13 | 2026-10-19 | 🟡 | #6: wrote `/api/plan` validation and 502/422 branches before their tests | Implemented the whole view in one pass after the first red test | Rule 5; when it slips, break each branch on purpose and confirm its test fails (done for #6) |

@@ -29,3 +29,5 @@ REST_FRAMEWORK = {
 }
 
 USE_TZ = True
+
+TOMTOM_API_KEY = os.environ.get("TOMTOM_API_KEY", "")
