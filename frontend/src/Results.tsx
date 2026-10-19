@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { CheckpointList } from "./CheckpointList";
 import { Banner } from "./components/Banner";
 import { Button } from "./components/Button";
@@ -46,6 +47,13 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
   const f = useUnits();
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // A new plan lands below the form, so bring its results into view.
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    heading.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }, [plan]);
 
   if (expanded) {
     const route = plan.routes[selected];
@@ -64,7 +72,7 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
   return (
     <section className={styles.results}>
       <div className={styles.head}>
-        <h2 className={styles.title}>
+        <h2 ref={heading} className={styles.title}>
           {allBlocked ? "No safe route in this window" : `${plural(plan.routes.length)} · ${plan.routes[0].name} recommended`}
         </h2>
         <p className={styles.note}>

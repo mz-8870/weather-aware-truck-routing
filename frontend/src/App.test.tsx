@@ -141,6 +141,19 @@ test("a route with no severe, high or unknown miles says so once instead of thre
   expect(card("Route A").textContent).not.toContain("No severe, high or unknown miles");
 });
 
+test("a new plan scrolls its results heading into view", async () => {
+  renderApp(Response.json(PLAN));
+  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
+  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
+});
+
+test("the results scroll honors reduced motion", async () => {
+  reducedMotion = true;
+  renderApp(Response.json(PLAN));
+  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
+  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "auto" });
+});
+
 test("selecting a card emphasizes its route and lists its checkpoints", async () => {
   renderApp(Response.json(PLAN));
   fireEvent.click(await screen.findByRole("button", { name: "Route B" }));
