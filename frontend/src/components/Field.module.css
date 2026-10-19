@@ -1,0 +1,41 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.input {
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: thin solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: var(--text-md) var(--font-sans);
+}
+
+.input:focus-visible {
+  outline: medium solid var(--color-focus-ring);
+  border-color: transparent;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.helper {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.error {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+}
