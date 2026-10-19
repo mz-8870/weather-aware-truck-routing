@@ -63,3 +63,17 @@ def test_paths_cover_the_route_end_to_end() -> None:
     assert cps[-1].path[-1] == [points[-1][1], points[-1][0]]
     for a, b in zip(cps, cps[1:]):
         assert a.path[-1] == b.path[0]
+
+
+def test_display_paths_drop_points_that_add_no_shape() -> None:
+    points, progress = straight_route(100, n=2001)  # dense samples on a straight line
+    cps = checkpoints(points, progress, 25)
+    assert all(len(c.path) == 2 for c in cps)  # a straight piece needs only its ends
+    assert cps[0].path[0] == [0.0, 0.0] and cps[-1].path[-1] == [points[-1][1], points[-1][0]]
+
+
+def test_display_paths_keep_bends() -> None:
+    corner = [(0.0, 0.0), (0.05, 0.0), (0.1, 0.0), (0.1, 0.05), (0.1, 0.1)]  # north, then east: a ~7 mi bend
+    progress = [(0, 0.0, 0.0), (4, 22_239.0, 1000.0)]
+    (cp,) = [c for c in checkpoints(corner, progress, 50)][:1]
+    assert [0.0, 0.1] in cp.path  # the corner survives simplification

@@ -7,3 +7,5 @@ __pycache__/
 .vercel/
 .DS_Store
 .playwright-mcp/
+test-results/
+playwright-report/
