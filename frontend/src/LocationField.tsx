@@ -68,6 +68,7 @@ export function LocationField({ label, value, onChange, onPick, error }: Props) 
   return (
     <div className={styles.wrap}>
       <Field
+        placeholder="City, address or ZIP"
         label={label}
         required
         value={value}

@@ -12,6 +12,7 @@ import { LocationField, type Place } from "./LocationField";
 import { planTrip, type ApiError, type Plan, type Trip } from "./plan";
 import { Results } from "./Results";
 import { RouteMap } from "./RouteMap";
+import { Examples, FormHead, MapEmpty, NoRoute, Outage, Planning, TripSummary, type Example } from "./States";
 import { formatter, lbFromInput, loadUnits, saveUnits, type Units } from "./units";
 import { UnitsContext } from "./useUnits";
 
@@ -29,6 +30,15 @@ const MAX_GROSS_LB = 80_000; // SPEC: warn, don't block
 const FIELDS = ["origin", "destination", "origin_position", "destination_position", "departure", "weight_lb", "empty_truck_lb", "axle_count", "axle_weight_lb"];
 
 const optionalNumber = (text: string) => (text.trim() === "" ? undefined : Number(text));
+
+const EXAMPLE_CARGO_LB = 32_000; // Pencil screen 01's example weight
+
+// "YYYY-MM-DDTHH:00" in the browser's zone for a datetime-local input: the next full hour.
+function nextHourInput() {
+  const d = new Date(Date.now() + 3600_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+}
 
 const TIME_ZONE = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value;
 
@@ -54,6 +64,7 @@ export default function App() {
   const [expanded, setExpanded] = useState(false);
   const [layer, setLayer] = useState<Variable | "off">("risk");
   const [hour, setHour] = useState(0);
+  const [editing, setEditing] = useState(true); // the form, or its one-line summary once a trip is submitted
   const plan = useMutation<Plan, ApiError, Trip>({
     mutationFn: planTrip,
     onSuccess: () => {
@@ -61,6 +72,8 @@ export default function App() {
       setExpanded(false);
       setHour(0);
     },
+    // Errors the user fixes in the form reopen it; outages and "no route" get their own states.
+    onError: (e) => (e.status === 400 || (e.status === 422 && e.body.code !== "no_route")) && setEditing(true),
   });
   // Loads after the routes so it never blocks them; the slider then only indexes into this one response.
   const heatmap = useQuery({
@@ -83,7 +96,9 @@ export default function App() {
   const hasFieldError = FIELDS.some((name) => fieldError(name));
   // A server error on a collapsed field would otherwise be invisible.
   const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((name) => fieldError(name));
-  const alert = plan.error && !hasFieldError ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
+  const outage = plan.error && (plan.error.status === 0 || plan.error.status >= 500);
+  const noRoute = plan.error?.status === 422 && plan.error.body.code === "no_route";
+  const alert = plan.error && !hasFieldError && !outage && !noRoute ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
   function setUnits(next: Units, toast = true) {
     setUnitsState(next);
@@ -91,9 +106,32 @@ export default function App() {
     setUnitsToast({ open: toast, previous: units });
   }
 
+  function run(trip: Trip) {
+    setEditing(false);
+    plan.mutate(trip);
+  }
+
+  function tryExample(example: Example) {
+    const departure = nextHourInput();
+    setForm({ ...form, origin: example.origin, destination: example.destination, departure, mode: "cargo", interval: "25" });
+    setPicked({});
+    setWeights({ ...weights, weight: EXAMPLE_CARGO_LB });
+    run({
+      origin: example.origin,
+      destination: example.destination,
+      departure: new Date(departure).toISOString(),
+      weight_lb: EXAMPLE_CARGO_LB,
+      weight_mode: "cargo",
+      empty_truck_lb: weights.emptyTruck ?? 0,
+      axle_count: optionalNumber(form.axles),
+      axle_weight_lb: weights.axleWeight,
+      interval_mi: 25,
+    });
+  }
+
   function submit(e: FormEvent) {
     e.preventDefault();
-    plan.mutate({
+    run({
       origin: form.origin,
       destination: form.destination,
       origin_position: picked.origin && [picked.origin.lat, picked.origin.lon],
@@ -135,7 +173,10 @@ export default function App() {
           </header>
           <div className={styles.body}>
             <aside className={styles.sidebar}>
+              {!editing && plan.variables && <TripSummary trip={plan.variables} onEdit={() => setEditing(true)} />}
+              {editing && (
               <form className={styles.form} onSubmit={submit}>
+                <FormHead />
                 {(["origin", "destination"] as const).map((name) => (
                   <LocationField
                     key={name}
@@ -197,12 +238,17 @@ export default function App() {
                 <Button type="submit" disabled={plan.isPending}>
                   Plan routes
                 </Button>
+                {plan.isIdle && <Examples onPick={tryExample} />}
               </form>
-              {alert && (
+              )}
+              {editing && alert && (
                 <p role="alert" className={styles.alert}>
                   {alert}
                 </p>
               )}
+              {plan.isPending && <Planning />}
+              {noRoute && !editing && <NoRoute onEdit={() => setEditing(true)} />}
+              {outage && <Outage onRetry={() => plan.mutate(plan.variables!)} />}
               {plan.data && plan.variables && (
                 <Results
                   plan={plan.data}
@@ -219,6 +265,7 @@ export default function App() {
             </aside>
             <main className={styles.map}>
               <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
+              {plan.isIdle && <MapEmpty />}
               {plan.data && plan.variables && (
                 <ForecastControls
                   layer={layer}

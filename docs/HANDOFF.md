@@ -28,11 +28,13 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **#12 heatmap** — PR open from `issue-12-heatmap` (now based on main; #10 and #11 merged). Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
-2. **Design-audit PR** (`design-audit-fixes`, worktree `C:\dev\wtr-audit`, cut from main): impeccable-criteria fixes (box-sizing, results scroll into view, route card semantics, hover states, tabular nums, 44px segmented items…). It may conflict with #12 in `App.tsx`/`App.test.tsx`; merge one, then rebase-free merge main into the other. Report with before/after screenshots: `design-audit.html` in the session scratchpad `audit/` folder.
-3. Audit findings deferred to later tickets: checkpoint details keyboard access + active checkpoint marker + origin/destination pins (map, fold into #13/#15), `risk-moderate` contrast 2.25:1 and High vs Severe hue distance (needs a Pencil token change — user's call), dark map style + mobile (#14), placeholder brand mark, "Why Low" copy.
-4. Then #13 → #16 in order.
-5. Dev servers: Django :8000 (autoreload) and Vite :5179 (wtr-issues).
+1. **#13 states** — PR open from `issue-13-states`. Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
+2. Then #14 (mobile bottom sheet + dark mode incl. basemap) → #15 (Playwright smoke in CI + perf) → #16 (docs, release).
+3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, placeholder brand mark (design has a `truck` icon in the mark — screen 01), dark-mode severe vs high hue distance (1.36:1; dark mode is #14).
+4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
+5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%
+pm-cache\_npx\*
+ode_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
 
 ## Status (2026-10-20)
 | # | Ticket | State |
@@ -48,8 +50,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 9 | Location autosuggest | ✅ merged (#23) |
 | 10 | Weight modes + truck params | ✅ merged (#24) |
 | 11 | Units + time display | ✅ merged (#25) |
-| 12 | Heatmap + slider + trucks | PR open (see Resume here) |
-| 13–16 | — | Not started |
+| 12 | Heatmap + slider + trucks | ✅ merged (#26) |
+| 13 | Loading, empty, error states | PR open (see Resume here) |
+| 14–16 | — | Not started |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -72,6 +75,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **deck.gl + MapLibre 6:** deck 9.4's interleaved mode reads `map.transform.height`, which MapLibre 6 removed; `RouteMap` shims `map.transform` (`shortcut:` comment) so the heatmap renders interleaved under the routes (`beforeId: "route-casing"`). HeatmapLayer colors by `weight / colorDomain[1]` sampled at texel centers — level k needs weight `k + 0.5`, `colorDomain [0.5, 5]`; `colorDomain[0]` only fades alpha. Per-level alpha rides in `colorRange` (Low faint, hazards strong). Its Gaussian is ~1% at half the radius, so `radiusPixels` ≈ 4 grid cells, recomputed on zoom.
 - **Design-system change (2026-10-20, user-approved):** light `risk-moderate` #D9A514→#AD8200 (3.5:1 on white), `risk-high` #D86A12→#E06A10, `risk-severe` #B8241C→#961A22 (High vs Severe 1.81→2.53). Dark values unchanged. Set in the `.pen` variables and `tokens.ts`.
 - **Perf note for #15 (heatmap):** cells grow with route length (~1,100 for coast-to-coast) and Open-Meteo cost is per location (50/request, 4 parallel) — long trips can take a minute+. Consider 50 mi spacing for long routes if it's too slow.
+- **Design audit (PR #27):** global `box-sizing: border-box`; route card is an `<article>` with a "Route X" button (`aria-pressed`, `aria-describedby` = badges + duration + distance + stats); zero-risk cards say "No severe, high or unknown miles" (never on a No Travel route); hover states; tabular nums; 24px slider thumb.
+- **States (#13):** after submit the form collapses to `TripSummary` (trip · meta · Edit); `Planning` skeletons while pending; `/api/plan` 422 with `code: "no_route"` (`tomtom.NoRoute`) → `NoRoute` state + Edit trip; 5xx or network → `Outage` + Try again (re-sends only `/api/plan` with the same body); other 400/422 reopen the form with the field error / alert. Empty state: `FormHead`, two example chips (32,000 lb cargo, next full hour, 25 mi) and the map message. Copy is verbatim from Pencil screens 01/03/10a/10b. The #27 results scroll-into-view was removed — the collapsed form makes results start at the top. Not built: the loading chip "Step 1 of 2 · Getting routes" (one request, no step progress to report).
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user

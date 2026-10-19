@@ -101,6 +101,8 @@ def plan(request: Request) -> Response:
             found = len(routes)
             routes += _detours(client, routes, origin, destination, t)
             body = _plan_json(client, routes, t)
+    except tomtom.NoRoute as e:
+        return Response({"detail": str(e), "code": "no_route"}, status=422)
     except tomtom.NotFound as e:
         return Response({"detail": str(e)}, status=422)
     except tomtom.RoutingError:

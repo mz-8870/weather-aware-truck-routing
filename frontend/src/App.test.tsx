@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
@@ -15,14 +15,6 @@ vi.mock("./RouteMap", () => ({
     </div>
   ),
 }));
-
-// jsdom has neither; App scrolls the results into view and checks the motion preference.
-let reducedMotion = false;
-beforeEach(() => {
-  reducedMotion = false;
-  Element.prototype.scrollIntoView = vi.fn();
-  vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(prefers-reduced-motion: reduce)" && reducedMotion }));
-});
 
 // Radix Slider measures its thumb; jsdom has no ResizeObserver.
 class NoResizeObserver {
@@ -92,7 +84,7 @@ const HEATMAP = {
   levels: Object.fromEntries(["risk", "wind", "rain", "snow"].map((v, i) => [v, Array.from({ length: 49 }, (_, h) => [Math.min(4, h + i), null])])),
 };
 
-function stubFetch(planResponse: Response | Error, heatmapResponse: Response = Response.json(HEATMAP)) {
+function stubFetch(planResponse: Response | Error | Promise<Response>, heatmapResponse: Response = Response.json(HEATMAP)) {
   vi.stubGlobal("ResizeObserver", NoResizeObserver);
   const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
     if (url === "/api/heatmap") return heatmapResponse.clone();
@@ -101,6 +93,7 @@ function stubFetch(planResponse: Response | Error, heatmapResponse: Response = R
       return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
     }
     if (planResponse instanceof Error) throw planResponse;
+    if (planResponse instanceof Promise) return planResponse;
     return planResponse.clone(); // a body can be read once; tests may submit more than once
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -112,7 +105,7 @@ const geocodeCalls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock
 
 const card = (name: string) => screen.getByRole("article", { name });
 
-function renderApp(planResponse: Response | Error, spacing?: string, heatmapResponse?: Response) {
+function renderApp(planResponse: Response | Error | Promise<Response>, spacing?: string, heatmapResponse?: Response) {
   const fetchMock = stubFetch(planResponse, heatmapResponse);
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -162,19 +155,6 @@ test("a route with no severe, high or unknown miles says so once instead of thre
   expect(card("Route C").textContent).toContain("No severe, high or unknown miles");
   expect(card("Route C").textContent).not.toContain("Severe");
   expect(card("Route A").textContent).not.toContain("No severe, high or unknown miles");
-});
-
-test("a new plan scrolls its results heading into view", async () => {
-  renderApp(Response.json(PLAN));
-  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
-  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
-});
-
-test("the results scroll honors reduced motion", async () => {
-  reducedMotion = true;
-  renderApp(Response.json(PLAN));
-  const heading = await screen.findByRole("heading", { name: "3 routes · Route A recommended" });
-  expect(heading.scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "auto" });
 });
 
 test("selecting a card emphasizes its route and lists its checkpoints", async () => {
@@ -317,14 +297,73 @@ test("server validation errors show inline under their fields", async () => {
   expect(screen.getByLabelText("Destination").getAttribute("aria-invalid")).toBe("true");
 });
 
-test("a routing failure shows the server message", async () => {
-  renderApp(Response.json({ detail: "Routing service unavailable. Try again." }, { status: 502 }));
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Routing service unavailable. Try again.");
+test("a routing outage keeps the trip, and Try again re-sends only the plan request", async () => {
+  const fetchMock = renderApp(Response.json({ detail: "Routing service unavailable. Try again." }, { status: 502 }));
+  expect(await screen.findByText("Couldn't reach the routing service")).toBeTruthy();
+  expect(screen.getByText("Nothing was lost — your trip details are kept. This is usually temporary.")).toBeTruthy();
+  const others = fetchMock.mock.calls.length - 1;
+
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(2));
+  const plans = fetchMock.mock.calls.filter(([url]) => url === "/api/plan");
+  expect(plans[1][1]?.body).toBe(plans[0][1]?.body);
+  expect(fetchMock.mock.calls.length - 2).toBe(others); // nothing but the plan was re-sent
 });
 
-test("a network failure shows an alert instead of crashing", async () => {
+test("a network failure shows the outage state instead of crashing", async () => {
   renderApp(new TypeError("Failed to fetch"));
-  expect((await screen.findByRole("alert")).textContent).toBe("Can't reach the server. Check your connection and try again.");
+  expect(await screen.findByText("Couldn't reach the routing service")).toBeTruthy();
+});
+
+test("no drivable route has its own state, and Edit trip reopens the form", async () => {
+  renderApp(Response.json({ detail: "No truck route found for this trip.", code: "no_route" }, { status: 422 }));
+  expect(await screen.findByText("No drivable route found")).toBeTruthy();
+  expect(
+    screen.getByText("There's no road connection between these places for a truck. Check the destination, or pick a point on the mainland."),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Edit trip" }));
+  expect((screen.getByLabelText("Destination") as HTMLInputElement).value).toBe("Chicago, IL");
+});
+
+test("a place that can't be found reopens the form with the message", async () => {
+  renderApp(Response.json({ detail: "Couldn't find 'Chicagoo'." }, { status: 422 }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Couldn't find 'Chicagoo'.");
+  expect(screen.getByLabelText("Origin")).toBeTruthy();
+});
+
+test("the empty state explains the map and offers example trips that plan in one click", async () => {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByRole("heading", { name: "Plan a trip" })).toBeTruthy();
+  expect(screen.getByText("Your routes will appear here")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Amarillo → Oklahoma City · high wind" }));
+  expect(await screen.findByText("3 routes · Route A recommended")).toBeTruthy();
+  const body = JSON.parse(String(planCall(fetchMock)![1]?.body));
+  expect(body).toMatchObject({ origin: "Amarillo, TX", destination: "Oklahoma City, OK", weight_lb: 32000, interval_mi: 25 });
+  expect(new Date(body.departure).getTime()).toBeGreaterThan(Date.now());
+  expect(screen.queryByText("Your routes will appear here")).toBeNull();
+});
+
+test("while planning, the form collapses to a trip summary above skeleton cards", async () => {
+  renderApp(new Promise<Response>(() => {}));
+  expect(await screen.findByRole("heading", { name: "Finding routes…" })).toBeTruthy();
+  expect(screen.getByText("Getting 3 truck routes, then checking the weather at each checkpoint.")).toBeTruthy();
+  expect(screen.getByText("Denver, CO → Chicago, IL")).toBeTruthy();
+  expect(screen.getByText("Tue 08:00 · 70,000 lb · every 25 mi")).toBeTruthy();
+  expect(screen.queryByLabelText("Origin")).toBeNull();
+});
+
+test("Edit reopens the form with the trip filled in", async () => {
+  renderApp(Response.json(PLAN));
+  await screen.findByText("3 routes · Route A recommended");
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect((screen.getByLabelText("Origin") as HTMLInputElement).value).toBe("Denver, CO");
+  expect(screen.getByText("3 routes · Route A recommended")).toBeTruthy(); // results stay under the form
 });
 
 test("a 400 without a field error still shows an alert", async () => {
@@ -463,6 +502,7 @@ test("advanced options send empty-truck weight, and axle params only when filled
   expect(body.axle_count).toBe(5);
   expect(body).not.toHaveProperty("axle_weight_lb");
 
+  fireEvent.click(screen.getByRole("button", { name: "Edit" })); // the form collapses to a summary after planning
   fireEvent.change(screen.getByLabelText("Weight per axle (lb)"), { target: { value: "20000" } });
   fetchMock.mockClear();
   body = await submittedBody(fetchMock);
@@ -491,7 +531,7 @@ test("toggling units converts every number on screen without a new request; Undo
   expect(a.textContent).toContain("1,614.8 km · arrives");
   expect(a.textContent).toContain("20.1 km"); // 12.5 high mi
   expect(a.textContent).toContain("Wins on high km: 20.1 km vs 77.2 km on Route B (both 0 severe).");
-  expect(screen.getByRole("radio", { name: "40 km" })).toBeTruthy(); // spacing labels follow; value stays 25 mi
+  expect(screen.getByText(/· every 40 km$/)).toBeTruthy(); // the trip summary follows; value stays 25 mi
   expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(1);
   expect(localStorage.getItem("units")).toBe("metric");
 
