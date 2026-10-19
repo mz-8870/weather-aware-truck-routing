@@ -20,7 +20,7 @@ export const tokens = {
     "color-text-inverse": { light: "#FFFFFF", dark: "#111413" },
     "color-text-primary": { light: "#1A1D1C", dark: "#ECEAE4" },
     "color-text-secondary": { light: "#545955", dark: "#A9ADA8" },
-    "color-text-tertiary": { light: "#6F736F", dark: "#868B87" },
+    "color-text-tertiary": { light: "#6F736F", dark: "#939A97" },
     "map-border": { light: "#CBC5B8", dark: "#333A37" },
     "map-label": { light: "#7A7D78", dark: "#7E837F" },
     "map-land": { light: "#E9E6DF", dark: "#1B1F1E" },

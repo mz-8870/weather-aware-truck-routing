@@ -28,9 +28,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **#13 states** — PR open from `issue-13-states`. Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
-2. Then #14 (mobile bottom sheet + dark mode incl. basemap) → #15 (Playwright smoke in CI + perf) → #16 (docs, release).
-3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, placeholder brand mark (design has a `truck` icon in the mark — screen 01), dark-mode severe vs high hue distance (1.36:1; dark mode is #14).
+1. **#14 mobile + dark** — PR open from `issue-14-mobile-dark`. The `.pen` dark `color-text-tertiary` change (#868B87 → #939A97) needs the user's Ctrl+S, then copy `design/truck-routing.pen` from the main checkout into the branch and commit. Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
+2. Then #15 (Playwright smoke in CI + perf) → #16 (docs, release).
+3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, dark-mode severe vs high hue distance (1.36:1).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
 5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
 
@@ -49,8 +49,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 10 | Weight modes + truck params | ✅ merged (#24) |
 | 11 | Units + time display | ✅ merged (#25) |
 | 12 | Heatmap + slider + trucks | ✅ merged (#26) |
-| 13 | Loading, empty, error states | PR open (see Resume here) |
-| 14–16 | — | Not started |
+| 13 | Loading, empty, error states | ✅ merged (#28) |
+| 14 | Mobile layout + dark mode | PR open (see Resume here) |
+| 15–16 | — | Not started |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -75,6 +76,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Perf note for #15 (heatmap):** cells grow with route length (~1,100 for coast-to-coast) and Open-Meteo cost is per location (50/request, 4 parallel) — long trips can take a minute+. Consider 50 mi spacing for long routes if it's too slow.
 - **Design audit (PR #27):** global `box-sizing: border-box`; route card is an `<article>` with a "Route X" button (`aria-pressed`, `aria-describedby` = badges + duration + distance + stats); zero-risk cards say "No severe, high or unknown miles" (never on a No Travel route); hover states; tabular nums; 24px slider thumb.
 - **States (#13):** after submit the form collapses to `TripSummary` (trip · meta · Edit); `Planning` skeletons while pending; `/api/plan` 422 with `code: "no_route"` (`tomtom.NoRoute`) → `NoRoute` state + Edit trip; 5xx or network → `Outage` + Try again (re-sends only `/api/plan` with the same body); other 400/422 reopen the form with the field error / alert. Empty state: `FormHead`, two example chips (32,000 lb cargo, next full hour, 25 mi) and the map message. Copy is verbatim from Pencil screens 01/03/10a/10b. The #27 results scroll-into-view was removed — the collapsed form makes results start at the top. Not built: the loading chip "Step 1 of 2 · Getting routes" (one request, no step progress to report).
+- **Theme (#14):** `loadTheme`/`saveTheme` in `tokens/theme.ts` (localStorage `theme`, light default per SPEC); `main.tsx` applies it before first paint; header button "Switch to dark/light theme" (moon/sun). `RouteMap` is keyed by theme so the basemap style and heat colors rebuild. MapLibre controls are themed in `global.css`. Dark `color-text-tertiary` → #939A97 (≥4.77:1 on every dark surface).
+- **Phones (#14, ≤40em):** header "Truck Routing" + a Settings popover holding units + theme; the sidebar is a bottom sheet (`.body[data-sheet]` sets `--sheet-h`: 62dvh open / ~120px peek; handle button "Trip panel" with aria-expanded); slider dock sits at `--sheet-h` + gap; legend + caption + ticks hidden; layer chips scroll horizontally; checkpoint details open as a fixed bottom sheet (`role=dialog`, Close) instead of the popover; attribution compact top-right, folded. Coarse pointers get 44px segmented items and slider row. Planning resets the sidebar scroll to the top.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user

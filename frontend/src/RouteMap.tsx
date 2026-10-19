@@ -1,8 +1,9 @@
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { FeatureCollection } from "geojson";
-import { CircleDot, Flag, Truck } from "lucide-react";
+import { CircleDot, Flag, Truck, X } from "lucide-react";
 import {
+  AttributionControl,
   LngLatBounds,
   Map as MapLibreMap,
   Marker,
@@ -12,6 +13,8 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+
+const focusOnMount = (el: HTMLElement | null) => el?.focus(); // module-level, so it runs once per mount, not every render
 import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
 import { Popover } from "./components/Popover";
@@ -28,9 +31,12 @@ type Props = {
   onSelect: (index: number) => void;
   heat?: { cells: [number, number][]; levels: (number | null)[] }; // one forecast hour of one variable
   trucks?: [number, number][]; // [lon, lat] per route at the slider hour
+  mode: Mode; // a prop, not read from the DOM: a remounted map runs its effects before App's theme effect
 };
 
 type Cell = { position: [number, number]; level: number };
+
+const PHONE = "(max-width: 40em)"; // matches the CSS breakpoint: details open as a bottom sheet there
 
 const CELL_M = 25 * 1609.344; // backend grid spacing
 const EARTH_M = 40_075_016.686;
@@ -59,14 +65,12 @@ function routeData(routes: Route[] = [], selected = 0): FeatureCollection {
   };
 }
 
-const currentMode = (): Mode => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
-
 function whenLoaded(m: MapLibreMap, fn: () => void) {
   if (m.getSource("route")) fn();
   else m.once("load", fn);
 }
 
-export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
+export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const select = useRef(onSelect);
@@ -79,7 +83,6 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   const [cellPx, setCellPx] = useState(0); // one grid cell on screen, so the blur follows zoom
 
   useEffect(() => {
-    const mode = currentMode();
     const c = (name: keyof typeof tokens.color) => tokens.color[name][mode];
     const riskColor = [
       "match",
@@ -88,8 +91,14 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
       c("risk-unknown"),
     ] as unknown as ExpressionSpecification; // spread args defeat maplibre's tuple typing
     const emphasis = (on: number, off: number) => ["case", ["get", "selected"], on, off] as ExpressionSpecification;
-    const m = new MapLibreMap({ container: container.current!, style: mapStyle(mode), bounds: CONTINENTAL_US });
+    const m = new MapLibreMap({ container: container.current!, style: mapStyle(mode), bounds: CONTINENTAL_US, attributionControl: false });
     m.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    // On phones the bottom of the map is under the trip sheet, so the (required) credit goes top-right.
+    const phone = window.matchMedia(PHONE).matches;
+    // shortcut: placement is decided at mount; crossing 40em later (rotation) keeps it until the next theme/remount.
+    m.addControl(new AttributionControl({ compact: phone || undefined }), phone ? "top-right" : "bottom-right");
+    // Compact attribution opens expanded; on phones start it folded to its (i) button so it doesn't cover the chips.
+    if (phone) m.once("load", () => container.current?.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show"));
     m.on("load", () => {
       m.addSource("route", { type: "geojson", data: routeData() });
       const line = ["==", ["geometry-type"], "LineString"] as ExpressionSpecification;
@@ -140,7 +149,9 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
     if (!m || !coords.length) return;
     whenLoaded(m, () => {
       const bounds = coords.reduce((b, p) => b.extend(p), new LngLatBounds(coords[0], coords[0]));
-      m.fitBounds(bounds, { padding: 64, duration: 600 });
+      // On phones the open trip sheet covers the lower ~62% of the map; fit the routes above it.
+      const sheet = window.matchMedia(PHONE).matches ? m.getContainer().clientHeight * 0.62 : 0;
+      m.fitBounds(bounds, { padding: { top: 64, right: 64, bottom: 64 + sheet, left: 64 }, duration: 600 });
     });
   }, [routes]);
 
@@ -148,7 +159,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
     const m = map.current;
     if (!m) return;
     // low … notravel; Unknown cells are dropped
-    const colorRange = Object.values(riskRgba(currentMode()))
+    const colorRange = Object.values(riskRgba(mode))
       .slice(0, 5)
       .map(([r, g, b], i): Rgba => [r, g, b, HEAT_ALPHA[i]]);
     const data: Cell[] = heat
@@ -176,7 +187,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
         ],
       }),
     );
-  }, [heat, cellPx]);
+  }, [heat, cellPx, mode]);
 
   const truckCount = trucks?.length ?? 0;
   useEffect(() => {
@@ -209,6 +220,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   }, [routes]);
 
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];
+  const phone = !!checkpoint && window.matchMedia(PHONE).matches;
   return (
     <div ref={container} style={{ position: "absolute", inset: 0 }}>
       {truckEls.map((el, i) =>
@@ -227,7 +239,26 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
           el,
         ),
       )}
-      {checkpoint && (
+      {checkpoint && phone && (
+        <div
+          className={styles.sheet}
+          role="dialog"
+          aria-label={`Checkpoint ${popup.index + 1}`}
+          onKeyDown={(e) => e.key === "Escape" && setPopup(null)}
+        >
+          <button
+            type="button"
+            className={styles.close}
+            aria-label="Close"
+            ref={focusOnMount}
+            onClick={() => setPopup(null)}
+          >
+            <X aria-hidden />
+          </button>
+          <CheckpointDetails checkpoint={checkpoint} number={popup.index + 1} />
+        </div>
+      )}
+      {checkpoint && !phone && (
         <Popover
           open
           onOpenChange={(open) => !open && setPopup(null)}

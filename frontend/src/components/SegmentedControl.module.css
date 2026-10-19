@@ -57,3 +57,10 @@
   width: var(--space-4);
   height: var(--space-4);
 }
+
+/* Touch: full 44px targets (the control grows to fit). */
+@media (pointer: coarse) {
+  .item {
+    height: var(--control-height);
+  }
+}
