@@ -6,6 +6,7 @@ export type Variable = (typeof VARIABLES)[number];
 export type Heatmap = {
   hours: string[]; // 49 ISO hours from the departure hour
   cells: [number, number][]; // [lon, lat]
+  spacing_mi: number; // grid spacing: 25, or 50 for long corridors (Open-Meteo's per-minute budget)
   levels: Record<Variable, (number | null)[][]>; // [hour][cell] -> 0–4, null = Unknown
 };
 

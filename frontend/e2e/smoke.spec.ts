@@ -40,6 +40,7 @@ const PLAN = {
 
 const CELLS = PLAN.routes[0].checkpoints.map((c) => [c.lon, c.lat]);
 const HEATMAP = {
+  spacing_mi: 25,
   hours: Array.from({ length: 49 }, (_, h) => new Date(Date.now() + h * 3600_000).toISOString()),
   cells: CELLS,
   levels: Object.fromEntries(["risk", "wind", "rain", "snow"].map((v) => [v, Array.from({ length: 49 }, (_, h) => CELLS.map((_, i) => (h + i) % 5))])),

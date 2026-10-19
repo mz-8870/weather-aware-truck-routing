@@ -202,7 +202,9 @@ class HeatmapSerializer(serializers.Serializer):
 
 
 HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
-MAX_CELLS = 1_500  # coast to coast with detours is ~1,150; caps Open-Meteo fan-out per anonymous request
+# Open-Meteo's free tier allows ~600 locations a minute and the plan has just used some; past this many cells,
+# fall back to a 50 mi grid (coast to coast: ~1,150 -> ~300 cells) instead of returning Unknown holes.
+WEATHER_BUDGET = 500
 
 
 @api_view(["POST"])
@@ -211,8 +213,13 @@ def heatmap(request: Request) -> Response:
     data = HeatmapSerializer(data=request.data)
     data.is_valid(raise_exception=True)
     d = data.validated_data
-    cells = corridor_grid([tuple(p) for p in d["points"]])
-    if len(cells) > MAX_CELLS:
+    points = [tuple(p) for p in d["points"]]
+    spacing = 25
+    cells = corridor_grid(points, spacing_mi=spacing)
+    if len(cells) > WEATHER_BUDGET:
+        spacing = 50
+        cells = corridor_grid(points, spacing_mi=spacing)
+    if len(cells) > WEATHER_BUDGET:
         return Response({"points": ["Routes cover too large an area for the weather layer."]}, status=400)
     start = d["departure"].astimezone(UTC).replace(minute=0, second=0, microsecond=0)
     hours = [start + timedelta(hours=h) for h in range(HEATMAP_HOURS)]
@@ -230,6 +237,7 @@ def heatmap(request: Request) -> Response:
     return Response(
         {
             "hours": [h.isoformat() for h in hours],
+            "spacing_mi": spacing,
             "cells": [[lon, lat] for lat, lon in cells],
             "levels": {
                 "risk": grid(lambda r: risk.classify(r.wind_mph, r.rain_in_hr, r.snow_in_hr, d["cargo_lb"], r.beyond_forecast)),

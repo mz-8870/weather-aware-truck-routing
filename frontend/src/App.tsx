@@ -90,7 +90,10 @@ export default function App() {
   });
   // Memoized so typing in the form doesn't rebuild the map layers.
   const heat = useMemo(
-    () => (layer !== "off" && heatmap.data ? { cells: heatmap.data.cells, levels: heatmap.data.levels[layer][hour] } : undefined),
+    () =>
+      layer !== "off" && heatmap.data
+        ? { cells: heatmap.data.cells, spacingMi: heatmap.data.spacing_mi, levels: heatmap.data.levels[layer][hour] }
+        : undefined,
     [heatmap.data, layer, hour],
   );
   const trucks = useMemo(() => plan.data?.routes.map((r) => truckPosition(r, hour * 3600)), [plan.data, hour]);

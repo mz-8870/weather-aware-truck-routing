@@ -18,6 +18,7 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 9. Contrast: light colors (yellow, orange, grey) carry dark text — use `risk-on-warm`, never white.
 10. Unit conversions near a threshold must not flip a band through float error (e.g. cm→in giving 0.0999999 instead of 0.10) — round at the conversion boundary and test the exact threshold values. Display at the classifier's precision too (24.6 mph must not show as "25 mph").
 12. Before merging, confirm CI ran **on the head commit**: `gh pr checks --watch` returns instantly with "no checks reported" if the run hasn't been created yet — wait for the run (`gh run watch`) instead of merging on that.
+14. Check map/render work in a **production build** (`vite build` + `vite preview`), not only the dev server — dev-only config (e.g. `optimizeDeps.exclude`) can hide production failures.
 13. Judge a check by its **exit code**, not a grepped summary line: Vitest can print "30 passed" and still exit 1 on an unhandled error.
 11. Scripted file edits on Windows: run Python with `PYTHONUTF8=1` (or `encoding="utf-8"`) — the default cp1252 silently fails to match `—`, `·`, `→`.
 
@@ -46,3 +47,5 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 | 19 | 2026-10-20 | 🟡 | #12: interleaved deck overlay threw every frame on MapLibre 6 | deck 9.4 reads `map.transform`, removed in MapLibre 6 | Check the browser console after adding a map library integration, not just tests |
 | 20 | 2026-10-20 | 🟡 | #13: a Windows path in a scripted HANDOFF edit (`%LOCALAPPDATA%\npm-cache\…\node_modules`) was written with real newlines | `\n` inside a non-raw Python string became a newline | Rule 11: write Windows paths in scripted edits with raw strings (`r"…"`), then grep the result |
 | 21 | 2026-10-20 | 🟡 | #13: plan errors outside the listed statuses (e.g. 429, or no-route after Edit mid-request) showed nothing | Error routing listed the cases to handle instead of defaulting to the visible one | Route errors by exclusion: special states for known codes, everything else falls back to a visible message |
+| 22 | 2026-10-20 | 🔴 | Production builds showed a blank map (MapLibre worker 404) since #6; every visual check had used the dev server | `optimizeDeps.exclude` fixed dev only; no check ever ran the built bundle | Rule 14; the e2e smoke test now runs `vite preview` and fails on page errors |
+| 23 | 2026-10-20 | 🟡 | First perf profile reported 60 fps scrubbing while the map drew nothing | Measured frames without checking the screenshot/console | Look at the screenshot and console of every profiling run before trusting its numbers |
