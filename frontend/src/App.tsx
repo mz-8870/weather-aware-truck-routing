@@ -14,11 +14,15 @@ async function planTrip(trip: Trip): Promise<{ routes: Route[] }> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(trip),
+  }).catch(() => {
+    throw { status: 0, body: { detail: "Can't reach the server. Check your connection and try again." } } satisfies ApiError;
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw { status: res.status, body } satisfies ApiError;
   return body;
 }
+
+const FIELDS = ["origin", "destination", "departure", "weight_lb"];
 
 const miles = (mi: number) => `${mi.toLocaleString("en-US", { maximumFractionDigits: 1 })} mi`;
 
@@ -35,7 +39,8 @@ export default function App() {
     const e = plan.error?.status === 400 ? plan.error.body[name] : undefined;
     return Array.isArray(e) ? e[0] : undefined;
   };
-  const alert = plan.error && plan.error.status !== 400 ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
+  const hasFieldError = FIELDS.some((f) => fieldError(f));
+  const alert = plan.error && !hasFieldError ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
   function submit(e: FormEvent) {
     e.preventDefault();

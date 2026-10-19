@@ -9,8 +9,10 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 
 ## Non-negotiable rules
 - **No AI attribution** in commits or PRs (no `Co-Authored-By: Claude`, no "Generated with Claude Code").
-- **TDD with Matt Pocock's `implement` + `tdd` skills**: agree seams with the user before writing tests; red → green one test at a time at public interfaces; typecheck + single test files often, full suite at the end; code review before opening the PR; commit to the issue branch.
-- **One issue at a time**, in dependency order. Branch `issue-<n>-<slug>`, PR body "Closes #n". Don't merge without the user's OK.
+- **TDD with Matt Pocock's `implement` + `tdd` skills**: pick the seams yourself (user delegated, 2026-10-19) and state them in the PR; red → green one test at a time at public interfaces; typecheck + single test files often, full suite at the end; code review before opening the PR; commit to the issue branch.
+- **One issue at a time**, in dependency order. Branch `issue-<n>-<slug>`, PR body "Closes #n".
+- **Work autonomously** (user, 2026-10-19): don't ask the user unless truly blocked (accounts, keys, payment). Each PR is reviewed by a **reviewer subagent** (runs all checks + reads diff vs issue/spec); fix its BLOCKING findings, then merge yourself and start the next issue.
+- **Update this file at the end of every issue**, on the issue branch, so it merges with the PR.
 - **Don't touch the main checkout's branch** — the user keeps `design/truck-routing.pen` open in Pencil there. Code work happens in the git worktree **`C:\dev\wtr-issues`**.
 - **Pencil**: the user must **save (Ctrl+S)** before a `.pen` commit. Read the pen-dev skill (`mcp__pencil__read_skill`) before editing designs.
 - Simplest complete change; no speculative features (user's global CLAUDE.md: Karpathy guidelines + "ponytail" lazy-senior style).
@@ -28,12 +30,13 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 ## Status (2026-10-19)
 | # | Ticket | State |
 |---|---|---|
-| 1 | Walking skeleton | PR #17 open, CI green, reviewed. **Vercel deploy needs the user** (import repo in Vercel; env `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.vercel.app`). Verify the `/api/*` rewrite reaches Django on first deploy. |
-| 2 | Design system (Gate 1) | ✅ approved, closed |
-| 3 | Screens (Gate 2) | Designs committed; awaiting/confirm user approval, then close |
-| 4 | Tokens in code | Next up (blocked by #1 merge or branch from it) |
-| 5 | Risk engine | PR #18 open (based on #17), CI green, reviewed. Seams confirmed by user. |
-| 6–16 | — | Not started |
+| 1 | Walking skeleton | ✅ merged (#17). **Vercel deploy still needs the user** (import repo; env `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.vercel.app`, `TOMTOM_API_KEY`). Verify `/api/*` reaches Django on first deploy. |
+| 2 | Design system (Gate 1) | ✅ closed |
+| 3 | Screens (Gate 2) | ✅ approved, closed |
+| 4 | Tokens in code | ✅ merged (#19) |
+| 5 | Risk engine | ✅ merged (#18) |
+| 6 | Tracer route | PR #20 — reviewer findings fixed; merge after re-review |
+| 7–16 | — | Not started; #7 next |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -41,10 +44,13 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Risk ramp:** Low sage, Moderate yellow, High orange, Severe red, No Travel deep purple, Unknown grey — each with an icon (shield-check, circle-alert, triangle-alert, octagon-alert, ban, circle-dashed).
 - **Convert units at the boundary and round** before classifying (float error at thresholds — see PATTERNS_REVIEW rule 10).
 - **Routing vendor is TomTom**, not HERE (HERE signup needed a card; user declined). Key lives in `backend/.env` as `TOMTOM_API_KEY` (gitignored). Free tier ~2,500 req/day. No route → TomTom 400 `NO_ROUTE_FOUND` → our 422. Denver→Chicago returns only 2 routes, so the spec’s via-point fallback for <3 routes will be needed in #8.
+- **#6 API:** `POST /api/plan {origin, destination, departure ISO, weight_lb}` → `{routes:[{coordinates:[[lon,lat]], distance_mi, duration_s}]}`; 400 field errors, 422 `{detail}` (place not found / no route), 502 TomTom down. Geocoding is US-only fuzzy text (`countrySet=US`) until #9 sends coordinates. `weight_lb` is sent to TomTom as gross; cargo/gross modes are #10.
+- **Map:** MapLibre + OpenFreeMap tiles (no key), style in `frontend/src/mapStyle.ts` from `map-*` tokens. Vite needs `optimizeDeps.exclude: ["maplibre-gl"]` or the worker 404s in dev.
+- **TomTom timing for #7:** `extendedRouteRepresentation=distance&extendedRouteRepresentation=travelTime` returns ~90 sparse `progress` keyframes `{pointIndex, distanceInMeters, travelTimeInSeconds}` per route (not per point) — interpolate checkpoint ETAs between them. Open-Meteo batch (comma lists) returns a list; rain is mm, snowfall cm, wind in mph when `wind_speed_unit=mph`.
+- **Local dev:** Django `backend/.venv/Scripts/python manage.py runserver 127.0.0.1:8000`; Vite `npm run dev` in `frontend` (proxies `/api`).
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user
-- Merge PRs #17 then #18 (or OK to merge).
 - Vercel project setup (above).
 - An empty frame named "Frame" at 0,0 in the `.pen` — user hasn't said whether to delete it.
 - Make the repo public before submission (#16).

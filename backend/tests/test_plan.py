@@ -130,3 +130,27 @@ def test_tomtom_no_route_error_returns_422(client: Client, tomtom_api: FakeTomTo
 def test_other_tomtom_400_returns_502(client: Client, tomtom_api: FakeTomTom) -> None:
     tomtom_api.handler = lambda request: httpx.Response(400, json={"detailedError": {"code": "INVALID_REQUEST"}})
     assert post(client, trip()).status_code == 502
+
+
+def test_unknown_place_names_the_place(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = lambda request: httpx.Response(200, json={"results": []})
+    assert post(client, trip()).json()["detail"] == "Couldn't find 'Denver, CO'."
+
+
+def test_geocoding_is_limited_to_the_us(client: Client, tomtom_api: FakeTomTom) -> None:
+    post(client, trip())
+    assert tomtom_api.sent[0].url.params["countrySet"] == "US"
+
+
+def test_non_json_reply_returns_502(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = lambda request: httpx.Response(200, text="<html>proxy</html>")
+    assert post(client, trip()).status_code == 502
+
+
+def test_routing_error_does_not_carry_the_api_key() -> None:
+    def fail(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    with httpx.Client(transport=httpx.MockTransport(fail)) as c, pytest.raises(tomtom.RoutingError) as e:
+        tomtom.geocode(c, "Denver")
+    assert "key=" not in str(e.value)

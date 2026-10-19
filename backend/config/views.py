@@ -39,8 +39,8 @@ def plan(request: Request) -> Response:
             origin = tomtom.geocode(client, t["origin"])
             destination = tomtom.geocode(client, t["destination"])
             route = tomtom.truck_route(client, origin, destination, t["departure"], t["weight_lb"])
-    except tomtom.NotFound:
-        return Response({"detail": "No truck route found for this trip."}, status=422)
+    except tomtom.NotFound as e:
+        return Response({"detail": str(e)}, status=422)
     except tomtom.RoutingError:
         return Response({"detail": "Routing service unavailable. Try again."}, status=502)
     return Response({"routes": [route]})

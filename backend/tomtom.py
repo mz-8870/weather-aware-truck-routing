@@ -27,17 +27,19 @@ def _get(client: httpx.Client, path: str, params: dict) -> dict:
     try:
         response = client.get(API + path, params={**params, "key": settings.TOMTOM_API_KEY})
         if response.status_code == 400 and "NO_ROUTE_FOUND" in response.text:
-            raise NotFound("route")
+            raise NotFound("No truck route found for this trip.")
         response.raise_for_status()
-    except httpx.HTTPError as e:
-        raise RoutingError(str(e)) from e
-    return response.json()
+        return response.json()
+    except (httpx.HTTPError, ValueError) as e:
+        # Not str(e): httpx messages include the request URL, which carries the key.
+        raise RoutingError(type(e).__name__) from e
 
 
 def geocode(client: httpx.Client, query: str) -> tuple[float, float]:
-    results = _get(client, f"/search/2/search/{quote(query, safe='')}.json", {"limit": 1}).get("results")
+    # shortcut: US-only fuzzy search until #9 autosuggest sends picked coordinates.
+    results = _get(client, f"/search/2/search/{quote(query, safe='')}.json", {"limit": 1, "countrySet": "US"}).get("results")
     if not results:
-        raise NotFound(query)
+        raise NotFound(f"Couldn't find '{query}'.")
     return results[0]["position"]["lat"], results[0]["position"]["lon"]
 
 
@@ -60,7 +62,7 @@ def truck_route(
         },
     )
     if not body.get("routes"):
-        raise NotFound("route")
+        raise NotFound("No truck route found for this trip.")
     route = body["routes"][0]
     return {
         "coordinates": [[p["longitude"], p["latitude"]] for leg in route["legs"] for p in leg["points"]],

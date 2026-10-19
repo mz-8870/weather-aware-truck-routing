@@ -46,9 +46,10 @@ export function RouteMap({ coordinates }: Props) {
 
   useEffect(() => {
     const m = map.current;
-    if (!m || !coordinates?.length) return;
+    if (!m) return;
     const draw = () => {
       (m.getSource("route") as GeoJSONSource).setData(routeData(coordinates));
+      if (!coordinates?.length) return;
       const bounds = coordinates.reduce((b, p) => b.extend(p), new LngLatBounds(coordinates[0], coordinates[0]));
       m.fitBounds(bounds, { padding: 64, duration: 600 });
     };

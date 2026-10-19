@@ -15,8 +15,11 @@ afterEach(() => {
 
 const ROUTE = { coordinates: [[-104.99, 39.74], [-100, 40.5], [-87.63, 41.88]], distance_mi: 1003.4, duration_s: 54900 };
 
-function renderApp(planResponse: Response) {
-  const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => planResponse);
+function renderApp(planResponse: Response | Error) {
+  const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+    if (planResponse instanceof Error) throw planResponse;
+    return planResponse;
+  });
   vi.stubGlobal("fetch", fetchMock);
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -63,4 +66,14 @@ test("server validation errors show inline under their fields", async () => {
 test("a routing failure shows the server message", async () => {
   renderApp(Response.json({ detail: "Routing service unavailable. Try again." }, { status: 502 }));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Routing service unavailable. Try again.");
+});
+
+test("a network failure shows an alert instead of crashing", async () => {
+  renderApp(new TypeError("Failed to fetch"));
+  expect((await screen.findByRole("alert")).textContent).toBe("Can't reach the server. Check your connection and try again.");
+});
+
+test("a 400 without a field error still shows an alert", async () => {
+  renderApp(Response.json({ detail: "JSON parse error" }, { status: 400 }));
+  expect((await screen.findByRole("alert")).textContent).toBe("JSON parse error");
 });
