@@ -227,8 +227,9 @@ class HeatmapSerializer(serializers.Serializer):
 
 
 HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
-# Open-Meteo's free tier allows ~600 locations a minute and the plan has just used some; past this many cells,
-# fall back to a 50 mi grid (coast to coast: ~1,150 -> ~300 cells) instead of returning Unknown holes.
+# Open-Meteo's free tier allows ~600 locations a minute, and a long plan's checkpoints have just used up to ~425 of
+# them (cached readings cost nothing). Past this many cells, fall back to a 50 mi grid (coast to coast: ~1,150 -> ~300)
+# so the heatmap rarely meets the limit; when it does, those cells come back Unknown and draw no heat.
 WEATHER_BUDGET = 500
 
 

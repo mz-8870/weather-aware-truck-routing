@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type ConsoleMessage } from "@playwright/test";
 
 // A small but complete /api/plan answer: three routes Denver → Salt Lake City, five checkpoints each.
 function route(name: string, offsetLat: number, minutes: number) {
@@ -51,8 +51,8 @@ test("plan a trip → three ranked cards → scrub the forecast without refetchi
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   // Blocked tiles log errors of their own; anything else (e.g. MapLibre's worker failing to load) is a bug.
-  const blockedTiles = (text: string) => text.startsWith("Failed to load resource") || text.includes("tiles.openfreemap.org");
-  page.on("console", (m) => m.type() === "error" && !blockedTiles(m.text()) && errors.push(m.text()));
+  const blockedTiles = (m: ConsoleMessage) => `${m.location().url} ${m.text()}`.includes("tiles.openfreemap.org");
+  page.on("console", (m) => m.type() === "error" && !blockedTiles(m) && errors.push(m.text()));
   await page.route("**/tiles.openfreemap.org/**", (r) => r.abort()); // hermetic: no basemap tiles needed
   await page.route("**/api/plan", (r) => (calls.plan++, r.fulfill({ json: PLAN })));
   await page.route("**/api/heatmap", (r) => (calls.heatmap++, r.fulfill({ json: HEATMAP })));
@@ -61,7 +61,9 @@ test("plan a trip → three ranked cards → scrub the forecast without refetchi
     const w = window as unknown as { cls: number };
     w.cls = 0;
     new PerformanceObserver((list) => {
-      for (const e of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) w.cls += e.value;
+      // Every shift counts: results and the heatmap arrive within 500 ms of the click and key presses that
+      // request them, so the usual hadRecentInput filter would discard exactly the shifts this test is about.
+      for (const e of list.getEntries() as unknown as { value: number }[]) w.cls += e.value;
     }).observe({ type: "layout-shift", buffered: true });
   });
 
