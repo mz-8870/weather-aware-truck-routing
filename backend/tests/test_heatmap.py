@@ -123,3 +123,12 @@ def test_too_large_a_corridor_is_rejected_before_fetching_weather(client: Client
     assert response.status_code == 400
     assert "points" in response.json()
     assert open_meteo.sent == []
+
+
+def test_a_coast_to_coast_trip_with_detours_fits_the_cap(client: Client, open_meteo: FakeTomTom) -> None:
+    def path(via: tuple[float, float]) -> list[list[float]]:
+        legs = [((34.05, -118.24), via), (via, (40.71, -74.01))]
+        return [[a[0] + (b[0] - a[0]) * t / 60, a[1] + (b[1] - a[1]) * t / 60] for a, b in legs for t in range(61)]
+
+    points = path((37.4, -96.1)) + path((31.0, -96.1)) + path((43.8, -96.1))  # direct-ish and ±30% detours
+    assert heatmap(client, points=points).status_code == 200

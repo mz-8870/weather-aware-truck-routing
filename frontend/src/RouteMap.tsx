@@ -202,7 +202,10 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
     const els = ends.map(() => document.createElement("div"));
     const pins = els.map((el, i) => new Marker({ element: el }).setLngLat([ends[i].lon, ends[i].lat]).addTo(m));
     setPinEls(els);
-    return () => pins.forEach((p) => p.remove());
+    return () => {
+      pins.forEach((p) => p.remove());
+      setPinEls([]);
+    };
   }, [routes]);
 
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];

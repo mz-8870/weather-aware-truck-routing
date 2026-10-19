@@ -200,7 +200,7 @@ class HeatmapSerializer(serializers.Serializer):
 
 
 HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
-MAX_CELLS = 1_000  # ~coast to coast; caps Open-Meteo fan-out per request and keeps cells x 49 inside the cache
+MAX_CELLS = 1_500  # coast to coast with detours is ~1,150; caps Open-Meteo fan-out per anonymous request
 
 
 @api_view(["POST"])

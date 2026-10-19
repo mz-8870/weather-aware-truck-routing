@@ -89,12 +89,12 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
       {layer !== "off" && status === "success" && (
         <section className={styles.legend} aria-label="Legend">
           <h2 className={styles.legendTitle}>{capitalize(layer)} along corridor</h2>
-          <div className={styles.scale} aria-hidden>
+          <div className={styles.scale} role="img" aria-label="Low, Moderate, High, Severe, No Travel">
             {[0, 1, 2, 3, 4].map((l) => (
               <span key={l} style={{ background: `var(--risk-${riskLevel(l).key})` }} />
             ))}
           </div>
-          <div className={styles.scaleLabels}>
+          <div className={styles.scaleLabels} aria-hidden>
             {SCALE.map((s) => (
               <span key={s}>{s}</span>
             ))}
