@@ -28,7 +28,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **Deployed (2026-10-20):** https://weather-aware-truck-routing-gamma.vercel.app (Vercel project `mz-8870/weather-aware-truck-routing`, linked from `C:\dev\wtr-issues`; production env vars set). Redeploy: `npx vercel deploy --prod --yes` from the worktree root. Not connected to Git (no auto-deploy) unless the user asks for `vercel git connect`.
+1. **Deployed (2026-10-20):** https://weather-aware-truck-routing-gamma.vercel.app (Vercel project `mz-8870/weather-aware-truck-routing`, linked from `C:\dev\wtr-issues`; production env vars set). Connected to GitHub (2026-10-20): every push to `main` deploys to production, every PR gets a preview URL. Manual redeploy: `npx vercel deploy --prod --yes` from the worktree root.
 2. **Needs the user:** make the repo public when they say so.
 3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, dark-mode severe vs high hue distance (1.36:1).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
