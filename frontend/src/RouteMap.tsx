@@ -8,10 +8,12 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
+  setWorkerUrl,
   type ExpressionSpecification,
   type GeoJSONSource,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
@@ -32,6 +34,9 @@ type Props = {
 };
 
 type Cell = { position: [number, number]; level: number };
+
+// MapLibre looks for its worker next to its own module, which bundling moves; point it at the emitted file.
+setWorkerUrl(workerUrl);
 
 const PHONE = "(max-width: 40em)"; // matches the CSS breakpoint: details open as a bottom sheet there
 

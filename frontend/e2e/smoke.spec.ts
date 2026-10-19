@@ -47,6 +47,11 @@ const HEATMAP = {
 
 test("plan a trip → three ranked cards → scrub the forecast without refetching", async ({ page }) => {
   const calls = { plan: 0, heatmap: 0 };
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  // Blocked tiles log errors of their own; anything else (e.g. MapLibre's worker failing to load) is a bug.
+  const blockedTiles = (text: string) => text.startsWith("Failed to load resource") || text.includes("tiles.openfreemap.org");
+  page.on("console", (m) => m.type() === "error" && !blockedTiles(m.text()) && errors.push(m.text()));
   await page.route("**/tiles.openfreemap.org/**", (r) => r.abort()); // hermetic: no basemap tiles needed
   await page.route("**/api/plan", (r) => (calls.plan++, r.fulfill({ json: PLAN })));
   await page.route("**/api/heatmap", (r) => (calls.heatmap++, r.fulfill({ json: HEATMAP })));
@@ -74,6 +79,7 @@ test("plan a trip → three ranked cards → scrub the forecast without refetchi
 
   // Results and the heatmap arriving must not shove the layout around.
   expect(await page.evaluate(() => (window as unknown as { cls: number }).cls)).toBeLessThan(0.1);
+  expect(errors).toEqual([]); // the map's worker and layers came up in the production build
   // No horizontal scroll at any width.
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
 });
