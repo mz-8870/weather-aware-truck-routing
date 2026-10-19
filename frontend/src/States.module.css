@@ -187,6 +187,12 @@
   transform: translate(-50%, -50%);
 }
 
+@media (max-width: 40em) {
+  .mapEmpty {
+    display: none; /* the trip sheet covers the map's middle; Pencil 12b has no message */
+  }
+}
+
 .mapEmptyIcon {
   width: calc(var(--space-6) + var(--space-1));
   height: calc(var(--space-6) + var(--space-1));

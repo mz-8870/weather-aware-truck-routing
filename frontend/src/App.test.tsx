@@ -578,3 +578,34 @@ test("departure shows the user's time zone", () => {
   );
   expect(screen.getByText(/^Your time zone \(.+\)$/)).toBeTruthy();
 });
+
+test("the theme toggle switches to dark, is remembered, and switches back", () => {
+  const renderFresh = () =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <App />
+      </QueryClientProvider>,
+    );
+  renderFresh();
+  expect(document.documentElement.dataset.theme).toBe("light"); // SPEC: light by default
+  fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(localStorage.getItem("theme")).toBe("dark");
+
+  cleanup();
+  renderFresh();
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+  expect(document.documentElement.dataset.theme).toBe("light");
+});
+
+test("on a phone the trip panel is a sheet whose handle collapses and expands it", async () => {
+  renderApp(Response.json(PLAN));
+  await screen.findByText("3 routes · Route A recommended");
+  const handle = screen.getByRole("button", { name: "Trip panel" });
+  expect(handle.getAttribute("aria-expanded")).toBe("true");
+  fireEvent.click(handle);
+  expect(handle.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(handle);
+  expect(handle.getAttribute("aria-expanded")).toBe("true");
+});

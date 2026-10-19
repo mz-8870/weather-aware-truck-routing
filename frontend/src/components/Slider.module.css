@@ -36,3 +36,10 @@
   outline: medium solid var(--color-focus-ring);
   outline-offset: thin;
 }
+
+/* Touch: the whole 44px row grabs the thumb. */
+@media (pointer: coarse) {
+  .root {
+    height: var(--control-height);
+  }
+}

@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { ChevronDown, ChevronRight, Moon, SlidersHorizontal, Sun, Truck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
+import { Popover } from "./components/Popover";
 import { ForecastControls } from "./ForecastControls";
 import { fetchHeatmap, heatmapQuery, truckPosition, type Variable } from "./heatmap";
 import { SegmentedControl } from "./components/SegmentedControl";
@@ -15,6 +16,7 @@ import { RouteMap } from "./RouteMap";
 import { Examples, FormHead, MapEmpty, NoRoute, Outage, Planning, TripSummary, type Example } from "./States";
 import { formatter, lbFromInput, loadUnits, saveUnits, type Units } from "./units";
 import { UnitsContext } from "./useUnits";
+import { loadTheme, saveTheme, setTheme, type Mode } from "./tokens/theme";
 
 const UNITS = [
   { value: "imperial", label: "Imperial" },
@@ -44,6 +46,9 @@ const TIME_ZONE = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).fo
 
 export default function App() {
   const [units, setUnitsState] = useState<Units>(() => loadUnits());
+  const [theme, setThemeState] = useState<Mode>(() => loadTheme());
+  const [sheetOpen, setSheetOpen] = useState(true); // phones: the sidebar is a bottom sheet
+  const sidebar = useRef<HTMLElement>(null);
   const [unitsToast, setUnitsToast] = useState<{ open: boolean; previous: Units }>({ open: false, previous: units });
   const f = formatter(units);
   const [form, setForm] = useState({
@@ -101,6 +106,14 @@ export default function App() {
   // No route while the form is open (Edit clicked mid-request) falls back to the alert under the form.
   const alert = plan.error && !hasFieldError && !outage && !(noRoute && !editing) ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
+  useEffect(() => setTheme(theme), [theme]);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setThemeState(next);
+    saveTheme(next);
+  }
+
   function setUnits(next: Units, toast = true) {
     setUnitsState(next);
     saveUnits(next);
@@ -109,6 +122,7 @@ export default function App() {
 
   function run(trip: Trip) {
     setEditing(false);
+    if (sidebar.current) sidebar.current.scrollTop = 0; // the form collapses above whatever was scrolled to
     plan.mutate(trip);
   }
 
@@ -161,19 +175,47 @@ export default function App() {
     onChange: (e: { target: { value: string } }) => setWeights({ ...weights, [name]: lbFromInput(e.target.value, units) }),
   });
 
+  const tools = (
+    <>
+      <SegmentedControl label="Units" hideLabel value={units} options={[...UNITS]} onChange={(next) => setUnits(next)} />
+      <Button variant="secondary" type="button" className={styles.iconButton} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} onClick={toggleTheme}>
+        {theme === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
+      </Button>
+    </>
+  );
+
   return (
     <UnitsContext.Provider value={f}>
       <ToastProvider>
         <div className={styles.app}>
           <header className={styles.header}>
-            <div className={styles.mark} aria-hidden />
-            <h1 className={styles.title}>Weather-Aware Truck Routing</h1>
-            <div className={styles.tools}>
-              <SegmentedControl label="Units" hideLabel value={units} options={[...UNITS]} onChange={(next) => setUnits(next)} />
+            <div className={styles.mark} aria-hidden>
+              <Truck />
+            </div>
+            <h1 className={styles.title}>
+              <span className={styles.titleFull}>Weather-Aware Truck Routing</span>
+              <span className={styles.titleShort} aria-hidden>
+                Truck Routing
+              </span>
+            </h1>
+            <div className={styles.tools}>{tools}</div>
+            <div className={styles.settings}>
+              <Popover
+                trigger={
+                  <Button variant="secondary" type="button" className={styles.iconButton} aria-label="Settings">
+                    <SlidersHorizontal aria-hidden />
+                  </Button>
+                }
+              >
+                <div className={styles.settingsPanel}>{tools}</div>
+              </Popover>
             </div>
           </header>
-          <div className={styles.body}>
-            <aside className={styles.sidebar}>
+          <div className={styles.body} data-sheet={sheetOpen ? "open" : "peek"}>
+            <aside ref={sidebar} className={styles.sidebar}>
+              <button type="button" className={styles.handle} aria-label="Trip panel" aria-expanded={sheetOpen} onClick={() => setSheetOpen(!sheetOpen)}>
+                <span aria-hidden />
+              </button>
               {!editing && plan.variables && <TripSummary trip={plan.variables} onEdit={() => setEditing(true)} />}
               {editing && (
                 <form className={styles.form} onSubmit={submit}>
@@ -265,7 +307,8 @@ export default function App() {
               )}
             </aside>
             <main className={styles.map}>
-              <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
+              {/* Remount on theme change: the basemap style and heat colors are built from the theme at mount. */}
+              <RouteMap key={theme} routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
               {plan.isIdle && <MapEmpty />}
               {plan.data && plan.variables && (
                 <ForecastControls

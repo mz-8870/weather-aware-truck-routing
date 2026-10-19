@@ -1,8 +1,9 @@
 import { HeatmapLayer } from "@deck.gl/aggregation-layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import type { FeatureCollection } from "geojson";
-import { CircleDot, Flag, Truck } from "lucide-react";
+import { CircleDot, Flag, Truck, X } from "lucide-react";
 import {
+  AttributionControl,
   LngLatBounds,
   Map as MapLibreMap,
   Marker,
@@ -31,6 +32,8 @@ type Props = {
 };
 
 type Cell = { position: [number, number]; level: number };
+
+const PHONE = "(max-width: 40em)"; // matches the CSS breakpoint: details open as a bottom sheet there
 
 const CELL_M = 25 * 1609.344; // backend grid spacing
 const EARTH_M = 40_075_016.686;
@@ -88,8 +91,13 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
       c("risk-unknown"),
     ] as unknown as ExpressionSpecification; // spread args defeat maplibre's tuple typing
     const emphasis = (on: number, off: number) => ["case", ["get", "selected"], on, off] as ExpressionSpecification;
-    const m = new MapLibreMap({ container: container.current!, style: mapStyle(mode), bounds: CONTINENTAL_US });
+    const m = new MapLibreMap({ container: container.current!, style: mapStyle(mode), bounds: CONTINENTAL_US, attributionControl: false });
     m.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    // On phones the bottom of the map is under the trip sheet, so the (required) credit goes top-right.
+    const phone = window.matchMedia(PHONE).matches;
+    m.addControl(new AttributionControl({ compact: true }), phone ? "top-right" : "bottom-right");
+    // Compact attribution opens expanded; on phones start it folded to its (i) button so it doesn't cover the chips.
+    if (phone) m.once("load", () => container.current?.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show"));
     m.on("load", () => {
       m.addSource("route", { type: "geojson", data: routeData() });
       const line = ["==", ["geometry-type"], "LineString"] as ExpressionSpecification;
@@ -209,6 +217,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
   }, [routes]);
 
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];
+  const phone = !!checkpoint && window.matchMedia(PHONE).matches;
   return (
     <div ref={container} style={{ position: "absolute", inset: 0 }}>
       {truckEls.map((el, i) =>
@@ -227,7 +236,15 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks }: Props) {
           el,
         ),
       )}
-      {checkpoint && (
+      {checkpoint && phone && (
+        <div className={styles.sheet} role="dialog" aria-label={`Checkpoint ${popup.index + 1}`}>
+          <button type="button" className={styles.close} aria-label="Close" onClick={() => setPopup(null)}>
+            <X aria-hidden />
+          </button>
+          <CheckpointDetails checkpoint={checkpoint} number={popup.index + 1} />
+        </div>
+      )}
+      {checkpoint && !phone && (
         <Popover
           open
           onOpenChange={(open) => !open && setPopup(null)}

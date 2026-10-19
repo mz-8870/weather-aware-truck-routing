@@ -1,7 +1,7 @@
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
 }
 
 .header {
@@ -15,10 +15,19 @@
 }
 
 .mark {
+  display: grid;
+  flex: none;
+  place-items: center;
   width: calc(var(--space-6) + var(--space-1));
   height: calc(var(--space-6) + var(--space-1));
   border-radius: var(--radius-md);
   background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.mark svg {
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .title {
@@ -27,8 +36,31 @@
   font-weight: 600;
 }
 
+.titleShort,
+.settings,
+.handle {
+  display: none;
+}
+
+.tools,
+.settingsPanel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .tools {
   margin-left: auto;
+}
+
+.iconButton {
+  width: var(--control-height);
+  padding: 0;
+}
+
+.iconButton svg {
+  width: var(--space-4);
+  height: var(--space-4);
 }
 
 .body {
@@ -88,4 +120,94 @@
 .map {
   position: relative;
   flex: 1;
+}
+
+/* Phones: the map fills the screen and the sidebar becomes a bottom sheet (Pencil 12a–12d). */
+@media (max-width: 40em) {
+  .header {
+    height: calc(var(--space-12) + var(--space-1));
+    padding: 0 var(--space-4);
+  }
+
+  .titleFull {
+    position: absolute;
+    width: var(--space-1);
+    height: var(--space-1);
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .titleShort {
+    display: inline;
+  }
+
+  .tools {
+    display: none;
+  }
+
+  .settings {
+    display: block;
+    margin-left: auto;
+  }
+
+  .body {
+    --sheet-h: 62dvh;
+
+    position: relative;
+  }
+
+  .body[data-sheet="peek"] {
+    --sheet-h: calc(var(--space-12) * 2 + var(--space-6));
+  }
+
+  .sidebar {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    width: auto;
+    height: var(--sheet-h);
+    padding-top: 0;
+    border-top: thin solid var(--color-border);
+    border-right: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 calc(-1 * var(--space-1)) var(--space-4) var(--color-shadow);
+    transition: height var(--duration-base);
+  }
+
+  .handle {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    height: var(--control-height);
+    margin: 0 calc(-1 * var(--space-5));
+    padding: 0;
+    border: none;
+    background: var(--color-surface);
+    cursor: pointer;
+  }
+
+  .handle span {
+    width: var(--space-10);
+    height: var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--color-border-strong);
+  }
+
+  .handle:focus-visible {
+    outline: medium solid var(--color-focus-ring);
+    outline-offset: calc(-1 * var(--space-1));
+  }
+}
+
+@media (max-width: 40em) and (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
 }

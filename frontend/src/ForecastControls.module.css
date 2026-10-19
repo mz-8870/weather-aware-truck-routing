@@ -211,3 +211,34 @@
   color: var(--color-text-tertiary);
   font-size: var(--text-xs);
 }
+
+/* Phones: chips across the top, dock above the trip sheet, no legend (Pencil 12d). */
+@media (max-width: 40em) {
+  .layers {
+    top: var(--space-3);
+    right: calc(var(--space-12) + var(--space-1)); /* clear of the zoom control */
+    left: var(--space-3);
+  }
+
+  .toggle {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .caption,
+  .legend {
+    display: none;
+  }
+
+  .dock {
+    right: var(--space-3);
+    bottom: calc(var(--sheet-h) + var(--space-3));
+    left: var(--space-3);
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .ticks {
+    display: none;
+  }
+}
