@@ -58,7 +58,7 @@ export function TripSummary({ trip, onEdit }: { trip: Trip; onEdit: () => void }
 
 export function Planning() {
   return (
-    <section className={styles.planning} aria-busy>
+    <section className={styles.planning} role="status" aria-busy>
       <div>
         <h2 className={styles.title}>Finding routes…</h2>
         <p className={styles.note}>Getting 3 truck routes, then checking the weather at each checkpoint.</p>

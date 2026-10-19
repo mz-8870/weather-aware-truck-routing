@@ -325,6 +325,20 @@ test("no drivable route has its own state, and Edit trip reopens the form", asyn
   expect((screen.getByLabelText("Destination") as HTMLInputElement).value).toBe("Chicago, IL");
 });
 
+test("an answer that arrives after Edit still shows its message", async () => {
+  let answer!: (r: Response) => void;
+  renderApp(new Promise<Response>((resolve) => (answer = resolve)));
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  answer(Response.json({ detail: "No truck route found for this trip.", code: "no_route" }, { status: 422 }));
+  expect((await screen.findByRole("alert")).textContent).toBe("No truck route found for this trip.");
+});
+
+test("an unexpected client error reopens the form with the message", async () => {
+  renderApp(Response.json({ detail: "Request was throttled." }, { status: 429 }));
+  expect((await screen.findByRole("alert")).textContent).toBe("Request was throttled.");
+  expect(screen.getByLabelText("Origin")).toBeTruthy();
+});
+
 test("a place that can't be found reopens the form with the message", async () => {
   renderApp(Response.json({ detail: "Couldn't find 'Chicagoo'." }, { status: 422 }));
   expect((await screen.findByRole("alert")).textContent).toBe("Couldn't find 'Chicagoo'.");

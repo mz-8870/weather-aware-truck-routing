@@ -72,8 +72,8 @@ export default function App() {
       setExpanded(false);
       setHour(0);
     },
-    // Errors the user fixes in the form reopen it; outages and "no route" get their own states.
-    onError: (e) => (e.status === 400 || (e.status === 422 && e.body.code !== "no_route")) && setEditing(true),
+    // Outages and "no route" get their own states; any other error reopens the form with its message.
+    onError: (e) => !(e.status === 0 || e.status >= 500 || e.body.code === "no_route") && setEditing(true),
   });
   // Loads after the routes so it never blocks them; the slider then only indexes into this one response.
   const heatmap = useQuery({
@@ -98,7 +98,8 @@ export default function App() {
   const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((name) => fieldError(name));
   const outage = plan.error && (plan.error.status === 0 || plan.error.status >= 500);
   const noRoute = plan.error?.status === 422 && plan.error.body.code === "no_route";
-  const alert = plan.error && !hasFieldError && !outage && !noRoute ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
+  // No route while the form is open (Edit clicked mid-request) falls back to the alert under the form.
+  const alert = plan.error && !hasFieldError && !outage && !(noRoute && !editing) ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
   function setUnits(next: Units, toast = true) {
     setUnitsState(next);
@@ -175,71 +176,71 @@ export default function App() {
             <aside className={styles.sidebar}>
               {!editing && plan.variables && <TripSummary trip={plan.variables} onEdit={() => setEditing(true)} />}
               {editing && (
-              <form className={styles.form} onSubmit={submit}>
-                <FormHead />
-                {(["origin", "destination"] as const).map((name) => (
-                  <LocationField
-                    key={name}
-                    label={name === "origin" ? "Origin" : "Destination"}
-                    value={form[name]}
-                    error={fieldError(name) ?? fieldError(`${name}_position`)}
-                    onChange={(text) => {
-                      setForm({ ...form, [name]: text });
-                      setPicked({ ...picked, [name]: undefined });
-                    }}
-                    onPick={(place) => {
-                      setForm({ ...form, [name]: place.label });
-                      setPicked({ ...picked, [name]: place });
-                    }}
-                  />
-                ))}
-                <Field
-                  label="Departure"
-                  type="datetime-local"
-                  required
-                  {...bind("departure")}
-                  error={fieldError("departure")}
-                  helper={TIME_ZONE && `Your time zone (${TIME_ZONE})`}
-                />
-                <Field
-                  label={`${form.mode === "cargo" ? "Cargo" : "Gross"} weight (${f.weightUnit})`}
-                  required
-                  {...bindWeight("weight")}
-                  error={fieldError("weight_lb")}
-                  warning={weights.weight !== undefined && gross > MAX_GROSS_LB ? `Over ${f.weight(MAX_GROSS_LB)} gross` : undefined}
-                  helper={`Max ${f.weight(MAX_GROSS_LB)} gross`}
-                />
-                <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
-                <SegmentedControl
-                  label="Check weather every"
-                  value={form.interval}
-                  options={[10, 25, 50].map((mi) => ({ value: String(mi), label: f.interval(mi) }))}
-                  onChange={(interval) => setForm({ ...form, interval })}
-                />
-                <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
-                  {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
-                  Advanced: empty-truck weight, axles
-                </Button>
-                {showAdvanced && (
-                  <div className={styles.advancedFields}>
-                    <Field
-                      label={`Empty truck weight (${f.weightUnit})`}
-                      required
-                      {...bindWeight("emptyTruck")}
-                      error={fieldError("empty_truck_lb")}
-                      helper="Added to cargo for routing. Risk rules use cargo only."
+                <form className={styles.form} onSubmit={submit}>
+                  <FormHead />
+                  {(["origin", "destination"] as const).map((name) => (
+                    <LocationField
+                      key={name}
+                      label={name === "origin" ? "Origin" : "Destination"}
+                      value={form[name]}
+                      error={fieldError(name) ?? fieldError(`${name}_position`)}
+                      onChange={(text) => {
+                        setForm({ ...form, [name]: text });
+                        setPicked({ ...picked, [name]: undefined });
+                      }}
+                      onPick={(place) => {
+                        setForm({ ...form, [name]: place.label });
+                        setPicked({ ...picked, [name]: place });
+                      }}
                     />
-                    <div className={styles.row}>
-                      <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
-                      <Field label={`Weight per axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
+                  ))}
+                  <Field
+                    label="Departure"
+                    type="datetime-local"
+                    required
+                    {...bind("departure")}
+                    error={fieldError("departure")}
+                    helper={TIME_ZONE && `Your time zone (${TIME_ZONE})`}
+                  />
+                  <Field
+                    label={`${form.mode === "cargo" ? "Cargo" : "Gross"} weight (${f.weightUnit})`}
+                    required
+                    {...bindWeight("weight")}
+                    error={fieldError("weight_lb")}
+                    warning={weights.weight !== undefined && gross > MAX_GROSS_LB ? `Over ${f.weight(MAX_GROSS_LB)} gross` : undefined}
+                    helper={`Max ${f.weight(MAX_GROSS_LB)} gross`}
+                  />
+                  <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
+                  <SegmentedControl
+                    label="Check weather every"
+                    value={form.interval}
+                    options={[10, 25, 50].map((mi) => ({ value: String(mi), label: f.interval(mi) }))}
+                    onChange={(interval) => setForm({ ...form, interval })}
+                  />
+                  <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
+                    {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
+                    Advanced: empty-truck weight, axles
+                  </Button>
+                  {showAdvanced && (
+                    <div className={styles.advancedFields}>
+                      <Field
+                        label={`Empty truck weight (${f.weightUnit})`}
+                        required
+                        {...bindWeight("emptyTruck")}
+                        error={fieldError("empty_truck_lb")}
+                        helper="Added to cargo for routing. Risk rules use cargo only."
+                      />
+                      <div className={styles.row}>
+                        <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
+                        <Field label={`Weight per axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
+                      </div>
                     </div>
-                  </div>
-                )}
-                <Button type="submit" disabled={plan.isPending}>
-                  Plan routes
-                </Button>
-                {plan.isIdle && <Examples onPick={tryExample} />}
-              </form>
+                  )}
+                  <Button type="submit" disabled={plan.isPending}>
+                    Plan routes
+                  </Button>
+                  {plan.isIdle && <Examples onPick={tryExample} />}
+                </form>
               )}
               {editing && alert && (
                 <p role="alert" className={styles.alert}>
