@@ -69,7 +69,7 @@ function stubFetch(planResponse: Response | Error) {
       return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
     }
     if (planResponse instanceof Error) throw planResponse;
-    return planResponse;
+    return planResponse.clone(); // a body can be read once; tests may submit more than once
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -88,7 +88,7 @@ function renderApp(planResponse: Response | Error, spacing?: string) {
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
   if (spacing) fireEvent.click(screen.getByRole("radio", { name: spacing }));
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   return fetchMock;
@@ -116,6 +116,8 @@ test("planning a trip shows three ranked route cards with the recommendation", a
     destination: "Chicago, IL",
     departure: new Date("2030-01-15T08:00").toISOString(),
     weight_lb: 70000,
+    weight_mode: "cargo",
+    empty_truck_lb: 35000,
     interval_mi: 25,
   });
 });
@@ -234,7 +236,7 @@ test("typing 3+ characters suggests places; arrows + Enter pick one and planning
   expect(screen.queryByRole("listbox")).toBeNull();
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
 
   await screen.findByText("3 routes · Route A recommended");
@@ -280,8 +282,82 @@ test("editing a picked place drops its coordinates; Escape closes the list", asy
 
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo weight"), { target: { value: "70000" } });
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   await screen.findByText("3 routes · Route A recommended");
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).origin_position).toBeUndefined();
+});
+
+function fillTrip(weight: string) {
+  fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
+  fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
+  fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
+  fireEvent.change(screen.getByLabelText(/^(Cargo|Gross) weight$/), { target: { value: weight } });
+}
+
+async function submittedBody(fetchMock: ReturnType<typeof stubFetch>) {
+  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  await screen.findByText("3 routes · Route A recommended");
+  return JSON.parse(String(planCall(fetchMock)![1]?.body));
+}
+
+function renderBare() {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  return fetchMock;
+}
+
+test("weight can be entered as gross; the label follows the mode", async () => {
+  const fetchMock = renderBare();
+  fireEvent.click(screen.getByRole("radio", { name: "Gross (truck + cargo)" }));
+  expect(screen.getByLabelText("Gross weight")).toBeTruthy();
+  fillTrip("67000");
+  const body = await submittedBody(fetchMock);
+  expect(body.weight_mode).toBe("gross");
+  expect(body.weight_lb).toBe(67000);
+});
+
+test("over 80,000 lb gross warns but still plans", async () => {
+  const fetchMock = renderBare();
+  fillTrip("50000"); // cargo 50,000 + empty 35,000 = 85,000 gross
+  expect(screen.getByText("Over 80,000 lb gross")).toBeTruthy();
+  expect(screen.getByLabelText("Cargo weight").getAttribute("aria-invalid")).toBeNull();
+  expect((await submittedBody(fetchMock)).weight_lb).toBe(50000);
+});
+
+test("advanced options send empty-truck weight, and axle params only when filled", async () => {
+  const fetchMock = renderBare();
+  const toggle = screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" });
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  fireEvent.change(screen.getByLabelText("Empty truck weight"), { target: { value: "30000" } });
+  fireEvent.change(screen.getByLabelText("Axles (optional)"), { target: { value: "5" } });
+  fillTrip("32000");
+  let body = await submittedBody(fetchMock);
+  expect(body.empty_truck_lb).toBe(30000);
+  expect(body.axle_count).toBe(5);
+  expect(body).not.toHaveProperty("axle_weight_lb");
+
+  fireEvent.change(screen.getByLabelText("Weight per axle"), { target: { value: "20000" } });
+  fetchMock.mockClear();
+  body = await submittedBody(fetchMock);
+  expect(body.axle_weight_lb).toBe(20000);
+});
+
+test("a server error on a collapsed advanced field opens the section to show it", async () => {
+  stubFetch(Response.json({ axle_count: ["Ensure this value is greater than or equal to 2."] }, { status: 400 }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fillTrip("32000");
+  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  expect(await screen.findByText("Ensure this value is greater than or equal to 2.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" }).getAttribute("aria-expanded")).toBe("true");
 });

@@ -1,4 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
@@ -11,10 +12,30 @@ import { RouteMap } from "./RouteMap";
 
 const SPACINGS = [10, 25, 50].map((mi) => ({ value: String(mi), label: `${mi} mi` }));
 
-const FIELDS = ["origin", "destination", "origin_position", "destination_position", "departure", "weight_lb"];
+const MODES = [
+  { value: "cargo", label: "Cargo only" },
+  { value: "gross", label: "Gross (truck + cargo)" },
+] as const;
+const MAX_GROSS_LB = 80_000; // SPEC: warn, don't block
+
+const FIELDS = ["origin", "destination", "origin_position", "destination_position", "departure", "weight_lb", "empty_truck_lb", "axle_count", "axle_weight_lb"];
+
+const optionalNumber = (text: string) => (text.trim() === "" ? undefined : Number(text));
 
 export default function App() {
-  const [form, setForm] = useState({ origin: "", destination: "", departure: "", weight: "", interval: "25" });
+  const [form, setForm] = useState({
+    origin: "",
+    destination: "",
+    departure: "",
+    weight: "",
+    mode: "cargo" as "cargo" | "gross",
+    emptyTruck: "35000",
+    axles: "",
+    axleWeight: "",
+    interval: "25",
+  });
+  const [advanced, setAdvanced] = useState(false);
+  const gross = form.mode === "cargo" ? Number(form.weight) + Number(form.emptyTruck) : Number(form.weight);
   const [picked, setPicked] = useState<{ origin?: Place; destination?: Place }>({});
   const [selected, setSelected] = useState(0); // routes come best first, so 0 is the recommendation
   const [expanded, setExpanded] = useState(false);
@@ -30,6 +51,8 @@ export default function App() {
     return Array.isArray(e) ? e[0] : undefined;
   };
   const hasFieldError = FIELDS.some((f) => fieldError(f));
+  // A server error on a collapsed field would otherwise be invisible.
+  const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((f) => fieldError(f));
   const alert = plan.error && !hasFieldError ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
   function submit(e: FormEvent) {
@@ -42,6 +65,10 @@ export default function App() {
       // datetime-local has no zone; the browser's zone is the user's (SPEC: departure in browser TZ).
       departure: new Date(form.departure).toISOString(),
       weight_lb: Number(form.weight),
+      weight_mode: form.mode,
+      empty_truck_lb: Number(form.emptyTruck),
+      axle_count: optionalNumber(form.axles),
+      axle_weight_lb: optionalNumber(form.axleWeight),
       interval_mi: Number(form.interval),
     });
   }
@@ -77,13 +104,44 @@ export default function App() {
               />
             ))}
             <Field label="Departure" type="datetime-local" required {...bind("departure")} error={fieldError("departure")} />
-            <Field label="Weight (lb)" type="number" min={0} required {...bind("weight")} error={fieldError("weight_lb")} />
+            <Field
+              label={form.mode === "cargo" ? "Cargo weight" : "Gross weight"}
+              type="number"
+              min={0}
+              required
+              {...bind("weight")}
+              error={fieldError("weight_lb")}
+              warning={form.weight && gross > MAX_GROSS_LB ? "Over 80,000 lb gross" : undefined}
+              helper="Max 80,000 lb gross"
+            />
+            <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
             <SegmentedControl
-              label="Checkpoint spacing"
+              label="Check weather every"
               value={form.interval}
               options={SPACINGS}
               onChange={(interval) => setForm({ ...form, interval })}
             />
+            <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
+              {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
+              Advanced: empty-truck weight, axles
+            </Button>
+            {showAdvanced && (
+              <div className={styles.advancedFields}>
+                <Field
+                  label="Empty truck weight"
+                  type="number"
+                  min={0}
+                  required
+                  {...bind("emptyTruck")}
+                  error={fieldError("empty_truck_lb")}
+                  helper="Added to cargo for routing. Risk rules use cargo only."
+                />
+                <div className={styles.row}>
+                  <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
+                  <Field label="Weight per axle" type="number" min={1} {...bind("axleWeight")} error={fieldError("axle_weight_lb")} />
+                </div>
+              </div>
+            )}
             <Button type="submit" disabled={plan.isPending}>
               Plan routes
             </Button>

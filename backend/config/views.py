@@ -13,8 +13,7 @@ import tomtom
 import weather
 from checkpoints import checkpoints
 
-# shortcut: until #10 adds weight modes, weight_lb is gross and cargo = gross - the spec's default empty truck.
-EMPTY_TRUCK_LB = 35_000
+EMPTY_TRUCK_LB = 35_000  # SPEC default
 
 
 @api_view(["GET"])
@@ -22,6 +21,8 @@ def health(request: Request) -> Response:
     return Response({"status": "ok"})
 
 
+# shortcut: counts per instance (LocMem cache) and trusts X-Forwarded-For (NUM_PROXIES unset), so it is
+# bypassable; set NUM_PROXIES=1 on Vercel and a shared cache if abuse of the TomTom quota becomes real.
 class GeocodeThrottle(AnonRateThrottle):
     rate = "30/min"  # per IP: plenty for debounced typing, protects the TomTom free tier
 
@@ -58,6 +59,11 @@ class TripSerializer(serializers.Serializer):
     destination = serializers.CharField(max_length=200)
     departure = serializers.DateTimeField()
     weight_lb = serializers.FloatField(min_value=0)
+    # Cargo only: weight_lb is cargo. Gross: weight_lb is truck + cargo.
+    weight_mode = serializers.ChoiceField(choices=["cargo", "gross"], default="cargo")
+    empty_truck_lb = serializers.FloatField(min_value=0, default=EMPTY_TRUCK_LB)
+    axle_count = serializers.IntegerField(min_value=2, max_value=12, required=False)
+    axle_weight_lb = serializers.FloatField(min_value=1, required=False)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50], default=25)
     origin_position = PositionField()
     destination_position = PositionField()
@@ -73,6 +79,11 @@ class TripSerializer(serializers.Serializer):
         same = op == dp if op is not None and dp is not None else data["origin"].strip().lower() == data["destination"].strip().lower()
         if same:
             raise serializers.ValidationError({"destination": ["Destination must differ from origin."]})
+        # TomTom routes on gross; the risk load rules use cargo (SPEC).
+        if data["weight_mode"] == "cargo":
+            data["cargo_lb"], data["gross_lb"] = data["weight_lb"], data["weight_lb"] + data["empty_truck_lb"]
+        else:
+            data["cargo_lb"], data["gross_lb"] = max(0.0, data["weight_lb"] - data["empty_truck_lb"]), data["weight_lb"]
         return data
 
 
@@ -85,7 +96,7 @@ def plan(request: Request) -> Response:
         with tomtom.http_client() as client:
             origin = t.get("origin_position") or tomtom.geocode(client, t["origin"])
             destination = t.get("destination_position") or tomtom.geocode(client, t["destination"])
-            routes = tomtom.truck_routes(client, origin, destination, t["departure"], t["weight_lb"])
+            routes = tomtom.truck_routes(client, origin, destination, t["departure"], _vehicle(t))
             found = len(routes)
             routes += _detours(client, routes, origin, destination, t)
             body = _plan_json(client, routes, t)
@@ -94,6 +105,10 @@ def plan(request: Request) -> Response:
     except tomtom.RoutingError:
         return Response({"detail": "Routing service unavailable. Try again."}, status=502)
     return Response({**body, "routes_found": found})
+
+
+def _vehicle(t: dict) -> tomtom.Vehicle:
+    return tomtom.Vehicle(t["gross_lb"], t.get("axle_count"), t.get("axle_weight_lb"))
 
 
 def _same(a: tomtom.Route, b: tomtom.Route) -> bool:
@@ -107,7 +122,7 @@ def _detours(client, routes: list[tomtom.Route], origin, destination, t: dict) -
         if len(routes) + len(extra) >= 3:
             break
         try:
-            route = tomtom.truck_routes(client, origin, destination, t["departure"], t["weight_lb"], via=via)[0]
+            route = tomtom.truck_routes(client, origin, destination, t["departure"], _vehicle(t), via=via)[0]
         except (tomtom.NotFound, tomtom.RoutingError):
             continue  # an unroutable via point just means one less option
         if not any(_same(route, r) for r in routes + extra):
@@ -124,7 +139,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
     etas = [[t["departure"] + timedelta(seconds=c.offset_s) for c in route_cps] for route_cps in cps]
     # One weather batch for every route's checkpoints.
     flat = weather.readings(client, [(c.lat, c.lon, eta) for rc, re in zip(cps, etas) for c, eta in zip(rc, re)])
-    cargo_lb = max(0.0, t["weight_lb"] - EMPTY_TRUCK_LB)
+    cargo_lb = t["cargo_lb"]
     readings, results, start = [], [], 0
     for route_cps in cps:
         rs = flat[start : start + len(route_cps)]

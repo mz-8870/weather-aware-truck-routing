@@ -22,6 +22,12 @@ class Route(NamedTuple):
     detour_via: str | None = None  # place name of the via point, when known
 
 
+class Vehicle(NamedTuple):
+    gross_lb: float
+    axle_count: int | None = None  # sent to TomTom only when set
+    axle_weight_lb: float | None = None
+
+
 class RoutingError(Exception):
     """TomTom was unreachable or answered with an error."""
 
@@ -95,7 +101,7 @@ def truck_routes(
     origin: tuple[float, float],
     destination: tuple[float, float],
     departure: datetime,
-    gross_lb: float,
+    vehicle: Vehicle,
     via: tuple[float, float] | None = None,
 ) -> list[Route]:
     """TomTom's route plus up to two alternatives; with `via`, the single route through that point."""
@@ -106,11 +112,13 @@ def truck_routes(
         {
             "travelMode": "truck",
             "vehicleCommercial": "true",
-            "vehicleWeight": round(gross_lb * KG_PER_LB),
+            "vehicleWeight": round(vehicle.gross_lb * KG_PER_LB),
             "departAt": departure.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "traffic": "true",
             "extendedRouteRepresentation": ["distance", "travelTime"],
             "maxAlternatives": 0 if via else 2,
+            **({"vehicleNumberOfAxles": vehicle.axle_count} if vehicle.axle_count else {}),
+            **({"vehicleAxleWeight": round(vehicle.axle_weight_lb * KG_PER_LB)} if vehicle.axle_weight_lb else {}),
         },
     )
     if not body.get("routes"):

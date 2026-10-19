@@ -22,6 +22,7 @@ def trip(**overrides: object) -> dict:
         "destination": "Chicago, IL",
         "departure": future(),
         "weight_lb": 70000,
+        "weight_mode": "gross",
         **overrides,
     }
 
@@ -322,3 +323,56 @@ def test_route_of_identical_points_is_the_same_place(client: Client, tomtom_api:
     same = tt_route([(39.7392, -104.9903), (39.7392, -104.9903)], 10)  # TomTom says 1,609 km but every point is equal
     tomtom_api.handler = three_routes([same])
     assert post(client, trip()).json()["detail"] == "Origin and destination are the same place."
+
+
+
+# --- weight modes and truck parameters (#10) ---
+
+
+def routing_params(api: FakeTomTom) -> httpx.QueryParams:
+    return next(r for r in api.sent if r.url.path.startswith("/routing/")).url.params
+
+
+def test_cargo_is_the_default_mode_and_routing_gets_gross(client: Client, tomtom_api: FakeTomTom) -> None:
+    body = {k: v for k, v in trip(weight_lb=32000).items() if k != "weight_mode"}
+    response = post(client, body).json()
+    assert response["cargo_lb"] == 32000
+    assert routing_params(tomtom_api)["vehicleWeight"] == "30391"  # 32,000 + 35,000 empty = 67,000 lb
+
+
+def test_same_trip_in_both_modes_gives_identical_risk(client: Client, tomtom_api: FakeTomTom) -> None:
+    cargo = post(client, trip(weight_mode="cargo", weight_lb=32000)).json()
+    gross = post(client, trip(weight_mode="gross", weight_lb=67000)).json()
+    strip = lambda plan: [[(c["level"], c["reasons"]) for c in r["checkpoints"]] for r in plan["routes"]]  # noqa: E731
+    assert cargo["cargo_lb"] == gross["cargo_lb"] == 32000
+    assert strip(cargo) == strip(gross)
+
+
+def test_gross_below_the_empty_truck_means_zero_cargo(client: Client, tomtom_api: FakeTomTom) -> None:
+    assert post(client, trip(weight_mode="gross", weight_lb=20000)).json()["cargo_lb"] == 0
+
+
+def test_empty_truck_weight_is_configurable(client: Client, tomtom_api: FakeTomTom) -> None:
+    post(client, trip(weight_mode="cargo", weight_lb=32000, empty_truck_lb=30000))
+    assert routing_params(tomtom_api)["vehicleWeight"] == "28123"  # 62,000 lb
+
+
+def test_axle_params_are_sent_only_when_set(client: Client, tomtom_api: FakeTomTom) -> None:
+    post(client, trip())
+    assert "vehicleNumberOfAxles" not in routing_params(tomtom_api)
+    assert "vehicleAxleWeight" not in routing_params(tomtom_api)
+
+    tomtom_api.sent.clear()
+    post(client, trip(axle_count=5, axle_weight_lb=20000))
+    params = routing_params(tomtom_api)
+    assert params["vehicleNumberOfAxles"] == "5"
+    assert params["vehicleAxleWeight"] == "9072"
+
+
+@pytest.mark.parametrize(
+    "bad", [{"weight_mode": "tons"}, {"empty_truck_lb": -1}, {"axle_count": 1}, {"axle_count": 2.5}, {"axle_weight_lb": 0}]
+)
+def test_bad_truck_parameters_are_rejected(client: Client, tomtom_api: FakeTomTom, bad: dict) -> None:
+    response = post(client, trip(**bad))
+    assert response.status_code == 400
+    assert set(bad) <= set(response.json())
