@@ -27,7 +27,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
     ["High", 2, route.summary.high_mi],
     ["Unknown", null, route.summary.unknown_mi],
   ];
-  const clear = stats.every(([, , mi]) => mi === 0);
+  const clear = !blocked && stats.every(([, , mi]) => mi === 0); // never an all-clear line on a No Travel route
 
   return (
     <article className={styles.card} data-selected={selected} aria-labelledby={`${id}-name`}>
@@ -39,7 +39,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
               type="button"
               className={`${styles.name} ${styles.select}`}
               aria-pressed={selected}
-              aria-describedby={`${id}-duration ${id}-distance ${id}-stats`}
+              aria-describedby={`${id}-tags ${id}-duration ${id}-distance ${id}-stats`}
               onClick={onSelect}
             >
               {route.name}
@@ -53,18 +53,20 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
             <span className={styles.via}>{route.detour_via ? `via ${route.detour_via} · added detour` : "added detour"}</span>
           )}
         </div>
-        {recommended && (
-          <span className={styles.tag}>
-            <Star className={styles.tagIcon} aria-hidden />
-            Recommended
-          </span>
-        )}
-        {blocked && (
-          <span className={styles.tag} data-tone="notravel">
-            <Ban className={styles.tagIcon} aria-hidden />
-            No Travel
-          </span>
-        )}
+        <span id={`${id}-tags`} className={styles.tags}>
+          {recommended && (
+            <span className={styles.tag}>
+              <Star className={styles.tagIcon} aria-hidden />
+              Recommended
+            </span>
+          )}
+          {blocked && (
+            <span className={styles.tag} data-tone="notravel">
+              <Ban className={styles.tagIcon} aria-hidden />
+              No Travel
+            </span>
+          )}
+        </span>
       </div>
       <div className={styles.meta}>
         <span id={`${id}-duration`} className={styles.duration}>

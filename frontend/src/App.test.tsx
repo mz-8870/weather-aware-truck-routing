@@ -117,7 +117,7 @@ test("planning a trip shows three ranked route cards with the recommendation", a
   expect(a.textContent).toContain("12.5 mi");
   expect(a.textContent).toContain(PLAN.why);
   expect(card("Route B").textContent).not.toContain("Recommended");
-  expect(screen.getByRole("button", { name: "Route A", description: /^15h 15m 1,003\.4 mi · arrives/ }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Route A", description: /^Recommended 15h 15m 1,003\.4 mi · arrives/ }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("button", { name: "Route B" }).getAttribute("aria-pressed")).toBe("false");
   expect(screen.getByText("map: 3 routes, selected 0")).toBeTruthy();
 
@@ -180,6 +180,9 @@ test("a route with No Travel gets a banner and ranks last", async () => {
   expect(await screen.findByText("Route C crosses a No Travel zone")).toBeTruthy();
   expect(screen.getByText(/^12 mi around .+ — wind 58 mph\. Ranked last\.$/)).toBeTruthy();
   expect(card("Route C").textContent).toContain("No Travel");
+  expect(card("Route C").textContent).not.toContain("No severe, high or unknown miles"); // no all-clear on a blocked route
+  const described = screen.getByRole("button", { name: "Route C" }).getAttribute("aria-describedby")!.split(" ");
+  expect(described.map((id) => document.getElementById(id)?.textContent).join(" ")).toContain("No Travel"); // heard on focus
 });
 
 test("when every route is blocked there is no recommendation", async () => {

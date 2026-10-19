@@ -72,6 +72,11 @@
   font-size: var(--text-xs);
 }
 
+.tags {
+  display: flex;
+  gap: var(--space-1);
+}
+
 .tag {
   display: inline-flex;
   align-items: center;

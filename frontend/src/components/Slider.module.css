@@ -24,8 +24,8 @@
 
 .thumb {
   display: block;
-  width: var(--space-5);
-  height: var(--space-5);
+  width: var(--space-6); /* 24px target size now that borders count inside it */
+  height: var(--space-6);
   border: medium solid var(--color-brand);
   border-radius: var(--radius-full);
   background: var(--color-surface);
