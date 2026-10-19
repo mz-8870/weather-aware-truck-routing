@@ -412,6 +412,7 @@ def test_hos_stops_say_where_and_when_the_driver_stops(client: Client, tomtom_ap
     ]
     starts = [datetime.fromisoformat(s["start"]) - departure for s in route["stops"]]
     assert starts == [timedelta(hours=8), timedelta(hours=11.5)]
+    assert [s["offset_s"] for s in route["stops"]] == [8 * 3600, 11.5 * 3600]
 
 
 def test_without_hos_there_are_no_stops(client: Client, tomtom_api: FakeTomTom) -> None:

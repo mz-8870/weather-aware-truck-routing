@@ -1,4 +1,4 @@
-import type { Checkpoint, Route } from "./plan";
+import type { Checkpoint, Route, Stop } from "./plan";
 
 export const VARIABLES = ["risk", "wind", "rain", "snow"] as const;
 export type Variable = (typeof VARIABLES)[number];
@@ -22,9 +22,15 @@ export async function fetchHeatmap(query: HeatmapQuery): Promise<Heatmap> {
   return res.json();
 }
 
-/** [lon, lat] of a truck `seconds` after departure, interpolated between checkpoints by their offsets. */
-export function truckPosition(route: { checkpoints: Pick<Checkpoint, "lat" | "lon" | "offset_s">[] }, seconds: number): [number, number] {
-  const cps = route.checkpoints;
+type Keyframe = Pick<Checkpoint, "lat" | "lon" | "offset_s">;
+
+/** [lon, lat] of a truck `seconds` after departure, interpolated between checkpoints by their offsets; parked during HOS stops. */
+export function truckPosition(
+  route: { checkpoints: Keyframe[]; stops?: Pick<Stop, "lat" | "lon" | "offset_s" | "duration_s">[] },
+  seconds: number,
+): [number, number] {
+  const parked = (route.stops ?? []).flatMap((s) => [s, { ...s, offset_s: s.offset_s + s.duration_s }]);
+  const cps: Keyframe[] = parked.length ? [...route.checkpoints, ...parked].sort((a, b) => a.offset_s - b.offset_s) : route.checkpoints;
   const next = cps.findIndex((c) => c.offset_s > seconds);
   if (next === -1) return [cps[cps.length - 1].lon, cps[cps.length - 1].lat];
   if (next === 0) return [cps[0].lon, cps[0].lat];

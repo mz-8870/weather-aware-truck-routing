@@ -12,6 +12,13 @@ type Props = { route: Route; recommended: boolean; why: string | null; selected:
 
 const BAR_ORDER = [0, 1, 2, 3, 4, null];
 
+const stopCount = (stops: Route["stops"]) =>
+  (["break", "rest"] as const)
+    .map((kind) => [kind, stops.filter((s) => s.kind === kind).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([kind, n]) => `${n} ${kind}${n === 1 ? "" : "s"}`)
+    .join(" · ");
+
 export function RouteCard({ route, recommended, why, selected, onSelect }: Props) {
   const f = useUnits();
   const id = useId();
@@ -77,6 +84,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
           {arrival && ` · arrives ${dayTime(arrival)}`}
         </span>
       </div>
+      {route.stops.length > 0 && <span className={styles.distance}>{stopCount(route.stops)}</span>}
       <div className={styles.bar} aria-hidden>
         {bar.map((b) => (
           <span key={String(b.level)} data-risk={riskLevel(b.level).key} style={{ flexGrow: b.mi / total }} />

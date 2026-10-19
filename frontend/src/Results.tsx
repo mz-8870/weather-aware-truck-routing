@@ -5,6 +5,7 @@ import { Button } from "./components/Button";
 import { dayTime } from "./format";
 import type { Plan, Route } from "./plan";
 import { RouteCard } from "./RouteCard";
+import { StopList } from "./StopList";
 import styles from "./Results.module.css";
 import { convertText, type Formatter } from "./units";
 import { useUnits } from "./useUnits";
@@ -12,6 +13,7 @@ import { useUnits } from "./useUnits";
 type Props = {
   plan: Plan;
   intervalMi: number;
+  hos: boolean;
   selected: number;
   expanded: boolean;
   onSelect: (index: number) => void;
@@ -42,7 +44,7 @@ function detourBanner(plan: Plan) {
   return null;
 }
 
-export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack }: Props) {
+export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, onBack }: Props) {
   const f = useUnits();
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
@@ -56,6 +58,7 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
           All routes
         </Button>
         <RouteCard route={route} recommended={selected === plan.recommended} why={plan.why} selected />
+        {route.stops.length > 0 && <StopList stops={route.stops} />}
         <CheckpointList checkpoints={route.checkpoints} intervalMi={intervalMi} />
       </section>
     );
@@ -71,6 +74,11 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
           {allBlocked
             ? `Every route crosses a No Travel zone for a ${f.weight(plan.cargo_lb)} load. No route is recommended.`
             : convertText("Ranked by severe miles, then high miles, average risk, travel time.", f.units)}
+        </p>
+        <p className={styles.note}>
+          {hos
+            ? "ETAs include US hours-of-service stops: a 30 min break after 8 h and a 10 h rest after 11 h of driving."
+            : "ETAs assume non-stop driving."}
         </p>
       </div>
       {allBlocked ? (

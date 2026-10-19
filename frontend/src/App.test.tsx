@@ -57,6 +57,8 @@ const route = (name: string, over = {}) => ({
   summary: summary(),
   checkpoints: [cp(0, 0, "wind 12 mph: Low"), cp(25, 2, "wind 38 mph: High"), cp(50, null, "")],
   segments: [],
+  trip_s: 54900,
+  stops: [],
   ...over,
 });
 
@@ -148,7 +150,9 @@ test("planning a trip shows three ranked route cards with the recommendation", a
     weight_mode: "cargo",
     empty_truck_lb: 35000,
     interval_mi: 25,
+    hos: false,
   });
+  expect(screen.getByText("ETAs assume non-stop driving.")).toBeTruthy();
 });
 
 test("a route with no severe, high or unknown miles says so once instead of three zeros", async () => {
@@ -611,4 +615,32 @@ test("on a phone the trip panel is a sheet whose handle collapses and expands it
   expect(handle.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(handle);
   expect(handle.getAttribute("aria-expanded")).toBe("true");
+});
+
+test("with US hours of service on, the plan includes breaks and each route says where the driver stops", async () => {
+  const stops = [
+    { kind: "break", mile: 480, lat: 41, lon: -100, offset_s: 28800, start: "2030-01-15T23:00:00Z", duration_s: 1800, place: "North Platte, NE" },
+    { kind: "rest", mile: 660.4, lat: 41, lon: -98, offset_s: 41400, start: "2030-01-16T02:30:00Z", duration_s: 36000, place: null },
+  ];
+  const fetchMock = stubFetch(Response.json({ ...PLAN, routes: [route("Route A", { stops, trip_s: 92700 }), PLAN.routes[1], PLAN.routes[2]] }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fillTrip("70000");
+  fireEvent.click(screen.getByRole("radio", { name: "US hours of service" }));
+  const body = await submittedBody(fetchMock);
+  expect(body.hos).toBe(true);
+
+  expect(screen.getByText(/· HOS breaks$/)).toBeTruthy(); // trip summary
+  expect(screen.getByText("ETAs include US hours-of-service stops: a 30 min break after 8 h and a 10 h rest after 11 h of driving.")).toBeTruthy();
+  expect(card("Route A").textContent).toContain("1 break · 1 rest");
+
+  fireEvent.click(screen.getByRole("button", { name: "Route A" }));
+  const list = screen.getByRole("list", { name: "Stops" });
+  expect(list.textContent).toContain("30 min break");
+  expect(list.textContent).toContain("mi 480 · near North Platte, NE");
+  expect(list.textContent).toContain("10 h rest");
+  expect(list.textContent).toContain("mi 660.4");
 });

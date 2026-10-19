@@ -155,6 +155,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
                 "mile": s.mile,
                 "lat": s.lat,
                 "lon": s.lon,
+                "offset_s": round(hos_elapsed(s.drive_s)),  # wall-clock seconds after departure, like checkpoints
                 "start": (t["departure"] + timedelta(seconds=hos_elapsed(s.drive_s))).astimezone(UTC).isoformat(),
                 "duration_s": BREAK_S if s.kind == "break" else REST_S,
                 "place": places[s],

@@ -46,6 +46,7 @@ export function TripSummary({ trip, onEdit }: { trip: Trip; onEdit: () => void }
         </span>
         <span className={styles.meta}>
           {dayTime(trip.departure)} · {f.weight(trip.weight_lb)} · every {f.interval(trip.interval_mi)}
+          {trip.hos && " · HOS breaks"}
         </span>
       </div>
       <Button variant="ghost" type="button" className={styles.edit} onClick={onEdit}>

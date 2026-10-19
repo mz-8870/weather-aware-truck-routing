@@ -25,3 +25,17 @@ test("truck is interpolated between checkpoints by time", () => {
 test("truck waits at the destination after arrival", () => {
   expect(truckPosition(route, 48 * 3600)).toEqual([-98, 43]);
 });
+
+test("truck stays parked at an HOS stop for its duration", () => {
+  const withStop = {
+    checkpoints: [
+      { lat: 40, lon: -100, offset_s: 0 },
+      { lat: 42, lon: -100, offset_s: 7200 + 36000 }, // 2 h of driving with a 10 h rest at the halfway point
+    ],
+    stops: [{ lat: 41, lon: -100, offset_s: 3600, duration_s: 36000 }],
+  };
+  expect(truckPosition(withStop, 1800)).toEqual([-100, 40.5]);
+  expect(truckPosition(withStop, 3600)).toEqual([-100, 41]);
+  expect(truckPosition(withStop, 20000)).toEqual([-100, 41]); // resting
+  expect(truckPosition(withStop, 3600 + 36000 + 1800)).toEqual([-100, 41.5]);
+});

@@ -10,6 +10,7 @@ export type Trip = {
   axle_count?: number; // sent to TomTom only when set
   axle_weight_lb?: number;
   interval_mi: number;
+  hos: boolean; // US hours-of-service stops in the ETAs; false = non-stop driving
 };
 
 export type Checkpoint = {
@@ -28,6 +29,17 @@ export type Checkpoint = {
   owned_mi: number;
 };
 
+export type Stop = {
+  kind: "break" | "rest"; // 30 min break after 8 h of driving, 10 h rest after 11 h
+  mile: number;
+  lat: number;
+  lon: number;
+  offset_s: number; // wall-clock seconds after departure
+  start: string;
+  duration_s: number;
+  place: string | null; // nearest town, when TomTom knows one
+};
+
 export type Segment = { level: number | null; coordinates: [number, number][] };
 
 export type Summary = { severe_mi: number; high_mi: number; unknown_mi: number; notravel_mi: number; avg_risk: number | null };
@@ -41,6 +53,8 @@ export type Route = {
   summary: Summary;
   checkpoints: Checkpoint[];
   segments: Segment[];
+  trip_s: number; // departure to arrival, including stops
+  stops: Stop[]; // empty unless HOS breaks were asked for
 };
 
 export type Plan = {
