@@ -1,3 +1,5 @@
 Django==6.1.2
 djangorestframework==3.18.3
 python-dotenv==1.2.4
+flexpolyline==0.1.0
+httpx==0.28.1
