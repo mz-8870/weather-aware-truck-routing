@@ -5,6 +5,10 @@ export type Trip = {
   destination_position?: [number, number];
   departure: string;
   weight_lb: number;
+  weight_mode: "cargo" | "gross";
+  empty_truck_lb: number;
+  axle_count?: number; // sent to TomTom only when set
+  axle_weight_lb?: number;
   interval_mi: number;
 };
 
