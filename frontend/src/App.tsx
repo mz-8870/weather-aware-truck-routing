@@ -51,6 +51,8 @@ export default function App() {
     return Array.isArray(e) ? e[0] : undefined;
   };
   const hasFieldError = FIELDS.some((f) => fieldError(f));
+  // A server error on a collapsed field would otherwise be invisible.
+  const showAdvanced = advanced || ["empty_truck_lb", "axle_count", "axle_weight_lb"].some((f) => fieldError(f));
   const alert = plan.error && !hasFieldError ? String(plan.error.body.detail ?? "Something went wrong. Try again.") : undefined;
 
   function submit(e: FormEvent) {
@@ -119,11 +121,11 @@ export default function App() {
               options={SPACINGS}
               onChange={(interval) => setForm({ ...form, interval })}
             />
-            <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
-              {advanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
+            <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
+              {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
               Advanced: empty-truck weight, axles
             </Button>
-            {advanced && (
+            {showAdvanced && (
               <div className={styles.advancedFields}>
                 <Field
                   label="Empty truck weight"

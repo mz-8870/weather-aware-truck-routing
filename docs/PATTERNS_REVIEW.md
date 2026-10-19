@@ -18,6 +18,7 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 9. Contrast: light colors (yellow, orange, grey) carry dark text — use `risk-on-warm`, never white.
 10. Unit conversions near a threshold must not flip a band through float error (e.g. cm→in giving 0.0999999 instead of 0.10) — round at the conversion boundary and test the exact threshold values. Display at the classifier's precision too (24.6 mph must not show as "25 mph").
 12. Before merging, confirm CI ran **on the head commit**: `gh pr checks --watch` returns instantly with "no checks reported" if the run hasn't been created yet — wait for the run (`gh run watch`) instead of merging on that.
+13. Judge a check by its **exit code**, not a grepped summary line: Vitest can print "30 passed" and still exit 1 on an unhandled error.
 11. Scripted file edits on Windows: run Python with `PYTHONUTF8=1` (or `encoding="utf-8"`) — the default cp1252 silently fails to match `—`, `·`, `→`.
 
 ## Log
@@ -40,3 +41,4 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 | 14 | 2026-10-19 | 🟡 | #7: a Python replace on `CheckpointDetails.tsx` didn't match because the file has `—` | Windows Python opens files as cp1252 by default | Rule 11 (assert the match so it fails loudly — it did) |
 | 15 | 2026-10-19 | 🟡 | #7: popover showed wind 7.6 as "8 mph" while the rule said 7.6 | Display rounding differed from classifier precision | Rule 10 extended |
 | 16 | 2026-10-19 | 🟠 | Merged PR #22 before CI ran on its last (nit-fix) commit | `gh pr checks --watch` printed "no checks reported" (run not yet created) and the chained merge ran anyway | Rule 12; local checks had passed, CI on main confirmed afterwards |
+| 17 | 2026-10-19 | 🔴 | #10: `npm test` exited 1 (unhandled error) while I reported "30 passed"; the reviewer caught it | I grepped only the `Tests` line; the test stub reused one `Response`, so a second submit read a consumed body | Rule 13; stub returns `response.clone()` |

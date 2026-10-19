@@ -69,7 +69,7 @@ function stubFetch(planResponse: Response | Error) {
       return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
     }
     if (planResponse instanceof Error) throw planResponse;
-    return planResponse;
+    return planResponse.clone(); // a body can be read once; tests may submit more than once
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
@@ -347,4 +347,17 @@ test("advanced options send empty-truck weight, and axle params only when filled
   fetchMock.mockClear();
   body = await submittedBody(fetchMock);
   expect(body.axle_weight_lb).toBe(20000);
+});
+
+test("a server error on a collapsed advanced field opens the section to show it", async () => {
+  stubFetch(Response.json({ axle_count: ["Ensure this value is greater than or equal to 2."] }, { status: 400 }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fillTrip("32000");
+  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  expect(await screen.findByText("Ensure this value is greater than or equal to 2.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" }).getAttribute("aria-expanded")).toBe("true");
 });
