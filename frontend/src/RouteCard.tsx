@@ -1,8 +1,10 @@
 import { Ban, Info, Star } from "lucide-react";
-import { dayTime, duration, miles } from "./format";
+import { dayTime, duration } from "./format";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
 import styles from "./RouteCard.module.css";
+import { convertText } from "./units";
+import { useUnits } from "./useUnits";
 
 // Without onSelect (the expanded view) the card is static content, not a button.
 type Props = { route: Route; recommended: boolean; why: string | null; selected: boolean; onSelect?: () => void };
@@ -10,6 +12,7 @@ type Props = { route: Route; recommended: boolean; why: string | null; selected:
 const BAR_ORDER = [0, 1, 2, 3, 4, null];
 
 export function RouteCard({ route, recommended, why, selected, onSelect }: Props) {
+  const f = useUnits();
   const Card = onSelect ? "button" : "div";
   const blocked = route.summary.notravel_mi > 0;
   const arrival = route.checkpoints.at(-1)?.eta;
@@ -49,7 +52,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
       <div className={styles.meta}>
         <span className={styles.duration}>{duration(route.duration_s)}</span>
         <span className={styles.distance}>
-          {miles(route.distance_mi)}
+          {f.distance(route.distance_mi)}
           {arrival && ` · arrives ${dayTime(arrival)}`}
         </span>
       </div>
@@ -65,14 +68,14 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
               <span className={styles.dot} data-risk={riskLevel(level).key} />
               {label}
             </dt>
-            <dd>{miles(mi)}</dd>
+            <dd>{f.distance(mi)}</dd>
           </div>
         ))}
       </dl>
       {recommended && why && (
         <p className={styles.why}>
           <Info className={styles.whyIcon} aria-hidden />
-          {why}
+          {convertText(why, f.units)}
         </p>
       )}
     </Card>

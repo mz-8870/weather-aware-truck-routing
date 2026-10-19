@@ -12,7 +12,7 @@ const base: Checkpoint = {
   offset_s: 5 * 3600 + 20 * 60,
   eta: "2030-01-15T13:20:00+00:00",
   level: 4,
-  reasons: ["wind 47 mph + cargo 32,000 lb > 30,000"],
+  reasons: ["wind 47 mph + cargo 32,000 lb > 30,000 lb"],
   beyond_forecast: false,
   wind_mph: 47,
   gust_mph: 61,
@@ -32,7 +32,7 @@ test("shows ETA, readings, level and the rule that set it", () => {
   expect(screen.getByText("0.04 in/hr")).toBeTruthy();
   expect(screen.getByText("0.00 in/hr")).toBeTruthy();
   expect(screen.getByText("Why No Travel")).toBeTruthy();
-  expect(screen.getByText("Wind 47 mph + cargo 32,000 lb > 30,000")).toBeTruthy();
+  expect(screen.getByText("Wind 47 mph + cargo 32,000 lb > 30,000 lb")).toBeTruthy();
 });
 
 test("wind just under a threshold is not rounded up to it", () => {

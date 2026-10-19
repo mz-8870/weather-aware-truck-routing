@@ -21,8 +21,4 @@ export const duration = (seconds: number) => {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 };
 
-export const miles = (mi: number) => `${mi.toLocaleString("en-US", { maximumFractionDigits: 1 })} mi`;
-
-export const pounds = (lb: number) => `${lb.toLocaleString("en-US", { maximumFractionDigits: 0 })} lb`;
-
 export const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

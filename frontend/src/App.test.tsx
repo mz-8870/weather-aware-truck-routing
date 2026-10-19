@@ -15,6 +15,7 @@ vi.mock("./RouteMap", () => ({
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 const cp = (mile: number, level: number | null, reason: string, eta = "2030-01-15T16:20:00Z") => ({
@@ -360,4 +361,46 @@ test("a server error on a collapsed advanced field opens the section to show it"
   fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
   expect(await screen.findByText("Ensure this value is greater than or equal to 2.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" }).getAttribute("aria-expanded")).toBe("true");
+});
+
+test("toggling units converts every number on screen without a new request; Undo restores", async () => {
+  const fetchMock = renderApp(Response.json(PLAN));
+  await screen.findByText("3 routes · Route A recommended");
+  fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
+
+  const a = screen.getByRole("button", { name: /^Route A/ });
+  expect(a.textContent).toContain("1,614.8 km · arrives");
+  expect(a.textContent).toContain("20.1 km"); // 12.5 high mi
+  expect(a.textContent).toContain("Wins on high km: 20.1 km vs 77.2 km on Route B (both 0 severe).");
+  expect(screen.getByRole("radio", { name: "40 km" })).toBeTruthy(); // spacing labels follow; value stays 25 mi
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(1);
+  expect(localStorage.getItem("units")).toBe("metric");
+
+  expect(screen.getAllByText("Units switched to metric").length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getByRole("button", { name: /^Route A/ }).textContent).toContain("1,003.4 mi · arrives");
+});
+
+test("a metric weight plans with the same pounds as the imperial one", async () => {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
+  expect(screen.getByText("Max 36,287 kg gross")).toBeTruthy();
+  fillTrip("14515");
+  const body = await submittedBody(fetchMock);
+  expect(body.weight_lb).toBe(32000);
+  expect(body.empty_truck_lb).toBe(35000); // untouched default stays exact
+});
+
+test("departure shows the user's time zone", () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  expect(screen.getByText(/^Your time zone \(.+\)$/)).toBeTruthy();
 });

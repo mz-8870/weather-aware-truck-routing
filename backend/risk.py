@@ -43,9 +43,9 @@ SNOW_IN_HR = _Bands((0.5, 1.0, 2.0), 3.0, no_travel_inclusive=False)
 def _load_rule(wind_mph: float, cargo_lb: float) -> tuple[RiskLevel, str] | None:
     # wind >= 55 at any load is already No Travel via the wind band.
     if 45 <= wind_mph < 55 and cargo_lb > 30_000:
-        return RiskLevel.NO_TRAVEL, f"wind {wind_mph:g} mph + cargo {cargo_lb:,g} lb > 30,000"
+        return RiskLevel.NO_TRAVEL, f"wind {wind_mph:g} mph + cargo {cargo_lb:,g} lb > 30,000 lb"
     if 35 <= wind_mph < 45 and cargo_lb > 40_000:
-        return RiskLevel.SEVERE, f"wind {wind_mph:g} mph + cargo {cargo_lb:,g} lb > 40,000"
+        return RiskLevel.SEVERE, f"wind {wind_mph:g} mph + cargo {cargo_lb:,g} lb > 40,000 lb"
     return None
 
 
