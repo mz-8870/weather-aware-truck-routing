@@ -142,7 +142,7 @@ export default function App() {
                   helper={TIME_ZONE && `Your time zone (${TIME_ZONE})`}
                 />
                 <Field
-                  label={form.mode === "cargo" ? "Cargo weight" : "Gross weight"}
+                  label={`${form.mode === "cargo" ? "Cargo" : "Gross"} weight (${f.weightUnit})`}
                   required
                   {...bindWeight("weight")}
                   error={fieldError("weight_lb")}
@@ -163,7 +163,7 @@ export default function App() {
                 {showAdvanced && (
                   <div className={styles.advancedFields}>
                     <Field
-                      label="Empty truck weight"
+                      label={`Empty truck weight (${f.weightUnit})`}
                       required
                       {...bindWeight("emptyTruck")}
                       error={fieldError("empty_truck_lb")}
@@ -171,7 +171,7 @@ export default function App() {
                     />
                     <div className={styles.row}>
                       <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
-                      <Field label="Weight per axle" {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
+                      <Field label={`Weight per axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
                     </div>
                   </div>
                 )}

@@ -23,7 +23,7 @@ export function formatter(units: Units) {
     interval: (mi: number) => (metric ? `${num(mi * KM_PER_MI, 0)} km` : `${mi} mi`),
     wind: (mph: number | null) => reading(mph, (v) => (metric ? `${num(v * KM_PER_MI, 1)} km/h` : `${num(v, 1)} mph`)),
     rain: (inHr: number | null) => reading(inHr, (v) => (metric ? `${num(v * MM_PER_IN, 1, 1)} mm/hr` : `${num(v, 2, 2)} in/hr`)),
-    snow: (inHr: number | null) => reading(inHr, (v) => (metric ? `${num(v * CM_PER_IN, 1, 1)} cm/hr` : `${num(v, 2, 2)} in/hr`)),
+    snow: (inHr: number | null) => reading(inHr, (v) => (metric ? `${num(v * CM_PER_IN, 2, 2)} cm/hr` : `${num(v, 2, 2)} in/hr`)),
     weight: (lb: number) => (metric ? `${num(lb * KG_PER_LB, 0)} kg` : `${num(lb, 0)} lb`),
     weightUnit: metric ? "kg" : "lb",
     weightValue: (lb: number) => String(Math.round(metric ? lb * KG_PER_LB : lb)), // input value for a weight in lb
@@ -40,21 +40,23 @@ export function lbFromInput(text: string, units: Units): number | undefined {
 }
 
 // Backend rule and why texts are imperial, e.g. "wind 47 mph + cargo 32,000 lb > 30,000 lb".
-const QUANTITY = /(\d[\d,]*(?:\.\d+)?) (mph|in\/hr|lb|mi)\b/g;
+// "snow" is captured so its in/hr becomes cm/hr (as in the reading rows) while rain becomes mm/hr.
+const QUANTITY = /(snow )?(\d[\d,]*(?:\.\d+)?) (mph|in\/hr|lb|mi)\b/g;
 
 export function convertText(text: string, units: Units, { original = false } = {}): string {
   if (units === "imperial") return text;
   const f = formatter("metric");
   return text
-    .replace(QUANTITY, (match, n: string, unit: string) => {
+    .replace(QUANTITY, (_match, snow: string | undefined, n: string, unit: string) => {
       const v = Number(n.replace(/,/g, ""));
-      const metric = { mph: f.wind(v), "in/hr": `${num(v * MM_PER_IN, 1, 1)} mm/hr`, lb: f.weight(v), mi: f.distance(v) }[unit]!;
-      return original ? `${metric} (${match})` : metric;
+      const rate = snow ? f.snow(v) : `${num(v * MM_PER_IN, 1, 1)} mm/hr`;
+      const metric = { mph: f.wind(v), "in/hr": rate, lb: f.weight(v), mi: f.distance(v) }[unit]!;
+      return `${snow ?? ""}${original ? `${metric} (${n} ${unit})` : metric}`;
     })
     .replace(/\bmiles\b/g, "km");
 }
 
-const IMPERIAL_REGIONS = ["US", "LR", "MM"]; // countries that still use imperial road units
+const IMPERIAL_REGIONS = ["US", "LR", "MM"]; // where imperial is the everyday default (the app is US-focused)
 
 export const defaultUnits = (locale: string): Units =>
   IMPERIAL_REGIONS.includes(new Intl.Locale(locale).maximize().region ?? "") ? "imperial" : "metric";

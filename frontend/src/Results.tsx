@@ -70,7 +70,7 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
         <p className={styles.note}>
           {allBlocked
             ? `Every route crosses a No Travel zone for a ${f.weight(plan.cargo_lb)} load. No route is recommended.`
-            : "Ranked by severe miles, then high miles, average risk, travel time."}
+            : convertText("Ranked by severe miles, then high miles, average risk, travel time.", f.units)}
         </p>
       </div>
       {allBlocked ? (

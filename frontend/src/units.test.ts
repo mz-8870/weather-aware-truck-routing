@@ -19,8 +19,15 @@ test("readings: wind km/h, rain mm/hr, snow cm/hr at the classifier's precision"
   expect(imperial.rain(0.04)).toBe("0.04 in/hr");
   expect(metric.rain(0.1)).toBe("2.5 mm/hr");
   expect(imperial.snow(0.5)).toBe("0.50 in/hr");
-  expect(metric.snow(0.5)).toBe("1.3 cm/hr");
+  expect(metric.snow(0.5)).toBe("1.27 cm/hr");
   expect(metric.wind(null)).toBe("—");
+});
+
+test("metric readings stay distinct on both sides of every band edge (PATTERNS rule 10)", () => {
+  const edges = { wind: [25, 35, 45, 55], rain: [0.1, 0.25, 0.5, 1], snow: [0.5, 1, 2, 3] } as const;
+  const step = { wind: 0.1, rain: 0.01, snow: 0.01 }; // backend precision
+  for (const [kind, values] of Object.entries(edges) as [keyof typeof edges, readonly number[]][])
+    for (const edge of values) expect(metric[kind](edge - step[kind])).not.toBe(metric[kind](edge));
 });
 
 test("weights: lb or kg, whole numbers", () => {
@@ -54,6 +61,13 @@ test("backend rule text converts numbers with units, keeping the imperial origin
     "wind 75.6 km/h (47 mph) + cargo 14,515 kg (32,000 lb) > 13,608 kg (30,000 lb)",
   );
   expect(convertText("rain 0.3 in/hr: High", "metric", { original: true })).toBe("rain 7.6 mm/hr (0.3 in/hr): High");
+  expect(convertText("snow 1 in/hr: High", "metric", { original: true })).toBe("snow 2.54 cm/hr (1 in/hr): High"); // same unit as the reading row
+});
+
+test("the ranking note converts too", () => {
+  expect(convertText("Ranked by severe miles, then high miles, average risk, travel time.", "metric")).toBe(
+    "Ranked by severe km, then high km, average risk, travel time.",
+  );
 });
 
 test("why text converts miles to km without originals", () => {
