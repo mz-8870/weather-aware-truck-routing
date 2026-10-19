@@ -37,6 +37,31 @@ def _interp(xs: list[float], ys: list[float], x: float) -> float:
     return ys[j] + f * (ys[j + 1] - ys[j])
 
 
+PATH_TOLERANCE_DEG = 0.00015  # ~15 m: below a pixel at route zooms; long trips shrink ~3 MB -> well under Vercel's 4.5 MB
+
+
+def _simplify(path: list[list[float]], tol: float = PATH_TOLERANCE_DEG) -> list[list[float]]:
+    """Douglas-Peucker on [lon, lat] points (display only: ETAs and miles use the full geometry)."""
+    keep = [False] * len(path)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(path) - 1)]
+    while stack:
+        i, j = stack.pop()
+        (x1, y1), (x2, y2) = path[i], path[j]
+        dx, dy = x2 - x1, y2 - y1
+        norm = (dx * dx + dy * dy) ** 0.5
+        far, far_k = 0.0, -1
+        for k in range(i + 1, j):
+            x, y = path[k]
+            d = abs(dy * (x - x1) - dx * (y - y1)) / norm if norm else ((x - x1) ** 2 + (y - y1) ** 2) ** 0.5
+            if d > far:
+                far, far_k = d, k
+        if far > tol:
+            keep[far_k] = True
+            stack += [(i, far_k), (far_k, j)]
+    return [p for p, kept in zip(path, keep) if kept]
+
+
 def checkpoints(
     points: list[tuple[float, float]],
     progress: list[tuple[int, float, float]],
@@ -74,7 +99,7 @@ def checkpoints(
                 lon=lon,
                 offset_s=round(_interp(key_mi, key_s, mile)),
                 owned_mi=round(hi - lo, 2),
-                path=[at(lo), *inner, at(hi)],
+                path=_simplify([at(lo), *inner, at(hi)]),
             )
         )
     return result

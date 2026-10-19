@@ -7,5 +7,5 @@ export default defineConfig({
   // Pre-bundling moves maplibre-gl away from its worker file, so the worker 404s in dev.
   optimizeDeps: { exclude: ["maplibre-gl"] },
   server: { proxy: { "/api": "http://127.0.0.1:8000" } },
-  test: { environment: "jsdom" },
+  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] }, // e2e/ is Playwright's
 });

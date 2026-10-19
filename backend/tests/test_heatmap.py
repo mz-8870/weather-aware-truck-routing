@@ -83,6 +83,7 @@ def test_heatmap_returns_49_hours_of_levels_per_variable(client: Client, open_me
     assert last - first == timedelta(hours=48)
     n = len(body["cells"])
     assert n > 0 and all(len(c) == 2 for c in body["cells"])  # [lon, lat]
+    assert body["spacing_mi"] == 25  # a short corridor keeps the fine grid
     for variable, level in {"risk": 4, "wind": 3, "rain": 2, "snow": 0}.items():
         grid = body["levels"][variable]
         assert len(grid) == 49 and all(len(hour) == n for hour in grid)
@@ -131,4 +132,8 @@ def test_a_coast_to_coast_trip_with_detours_fits_the_cap(client: Client, open_me
         return [[a[0] + (b[0] - a[0]) * t / 60, a[1] + (b[1] - a[1]) * t / 60] for a, b in legs for t in range(61)]
 
     points = path((37.4, -96.1)) + path((31.0, -96.1)) + path((43.8, -96.1))  # direct-ish and ±30% detours
-    assert heatmap(client, points=points).status_code == 200
+    response = heatmap(client, points=points)
+    assert response.status_code == 200
+    # ~1,150 cells at 25 mi would blow Open-Meteo's ~600 locations/min free tier into Unknown holes.
+    assert response.json()["spacing_mi"] == 50
+    assert len(response.json()["cells"]) <= 500

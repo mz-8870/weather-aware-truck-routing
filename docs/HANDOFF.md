@@ -28,8 +28,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **#14 mobile + dark** — PR open from `issue-14-mobile-dark`. The `.pen` dark `color-text-tertiary` change (#868B87 → #939A97) needs the user's Ctrl+S, then copy `design/truck-routing.pen` from the main checkout into the branch and commit. Reviewer agent → fix findings → merge once CI is green on the head commit (PATTERNS rule 12).
-2. Then #15 (Playwright smoke in CI + perf) → #16 (docs, release).
+1. **#15 e2e + perf** — PR open from `issue-15-e2e-perf`. Reviewer agent → fix findings → merge once CI (now including the `e2e` job) is green on the head commit.
+2. Then #16 (README + architecture diagram via diagram-design skill, FUTURE_FEATURES.md incl. HOS breaks — ETAs assume non-stop driving — LOOM_SCRIPT.md; repo public only when the user says so).
 3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, dark-mode severe vs high hue distance (1.36:1).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
 5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
@@ -50,8 +50,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 11 | Units + time display | ✅ merged (#25) |
 | 12 | Heatmap + slider + trucks | ✅ merged (#26) |
 | 13 | Loading, empty, error states | ✅ merged (#28) |
-| 14 | Mobile layout + dark mode | PR open (see Resume here) |
-| 15–16 | — | Not started |
+| 14 | Mobile layout + dark mode | ✅ merged (#29) |
+| 15 | E2E + performance | PR open (see Resume here) |
+| 16 | — | Not started |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -78,6 +79,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **States (#13):** after submit the form collapses to `TripSummary` (trip · meta · Edit); `Planning` skeletons while pending; `/api/plan` 422 with `code: "no_route"` (`tomtom.NoRoute`) → `NoRoute` state + Edit trip; 5xx or network → `Outage` + Try again (re-sends only `/api/plan` with the same body); other 400/422 reopen the form with the field error / alert. Empty state: `FormHead`, two example chips (32,000 lb cargo, next full hour, 25 mi) and the map message. Copy is verbatim from Pencil screens 01/03/10a/10b. The #27 results scroll-into-view was removed — the collapsed form makes results start at the top. Not built: the loading chip "Step 1 of 2 · Getting routes" (one request, no step progress to report).
 - **Theme (#14):** `loadTheme`/`saveTheme` in `tokens/theme.ts` (localStorage `theme`, light default per SPEC); `main.tsx` applies it before first paint; header button "Switch to dark/light theme" (moon/sun). `RouteMap` is keyed by theme so the basemap style and heat colors rebuild. MapLibre controls are themed in `global.css`. Dark `color-text-tertiary` → #939A97 (≥4.77:1 on every dark surface).
 - **Phones (#14, ≤40em):** header "Truck Routing" + a Settings popover holding units + theme; the sidebar is a bottom sheet (`.body[data-sheet]` sets `--sheet-h`: 62dvh open / ~120px peek; handle button "Trip panel" with aria-expanded); slider dock sits at `--sheet-h` + gap; legend + caption + ticks hidden; layer chips scroll horizontally; checkpoint details open as a fixed bottom sheet (`role=dialog`, Close) instead of the popover; attribution compact top-right, folded. Coarse pointers get 44px segmented items and slider row. Planning resets the sidebar scroll to the top.
+- **E2E (#15):** `@playwright/test` 1.63.0 (exact; newer releases were < 2 weeks old). `frontend/playwright.config.ts` builds and serves `vite preview` on :4173; `e2e/smoke.spec.ts` answers `/api/plan` + `/api/heatmap` from fixtures and blocks basemap tiles (no backend, no upstreams), runs desktop 1440 + phone 390, and asserts 3 cards, slider scrub with no refetch, CLS < 0.1, no horizontal scroll, and no page/console errors (this caught the production worker bug). Vitest is scoped to `src/`. CI job `e2e` installs Chromium with deps.
+- **Perf (#15, docs/PERF.md):** `frontend/scripts/profile.mjs` profiles Seattle→Miami on the production build (headed, real GPU). Fixes: `setWorkerUrl` (production map was blank), Douglas–Peucker display paths (~15 m; plan 3.0 → 0.49 MB), heatmap `weightsTextureSize: 512` (scrub 24 → 60 fps), heatmap grid widens to 50 mi past 500 cells (Open-Meteo ~600 locations/min) and returns `spacing_mi`.
+- **Accuracy:** distance and drive time are TomTom's truck-profile figures; ETAs assume non-stop driving (no HOS breaks) — call this out in README/FUTURE_FEATURES.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user

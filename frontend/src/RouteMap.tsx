@@ -8,13 +8,13 @@ import {
   Map as MapLibreMap,
   Marker,
   NavigationControl,
+  setWorkerUrl,
   type ExpressionSpecification,
   type GeoJSONSource,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
-
-const focusOnMount = (el: HTMLElement | null) => el?.focus(); // module-level, so it runs once per mount, not every render
 import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
 import { Popover } from "./components/Popover";
@@ -29,16 +29,20 @@ type Props = {
   routes?: Route[];
   selected: number;
   onSelect: (index: number) => void;
-  heat?: { cells: [number, number][]; levels: (number | null)[] }; // one forecast hour of one variable
+  heat?: { cells: [number, number][]; spacingMi: number; levels: (number | null)[] }; // one forecast hour of one variable
   trucks?: [number, number][]; // [lon, lat] per route at the slider hour
   mode: Mode; // a prop, not read from the DOM: a remounted map runs its effects before App's theme effect
 };
 
 type Cell = { position: [number, number]; level: number };
 
+// MapLibre looks for its worker next to its own module, which bundling moves; point it at the emitted file.
+setWorkerUrl(workerUrl);
+
 const PHONE = "(max-width: 40em)"; // matches the CSS breakpoint: details open as a bottom sheet there
 
-const CELL_M = 25 * 1609.344; // backend grid spacing
+const focusOnMount = (el: HTMLElement | null) => el?.focus(); // module-level, so it runs once per mount, not every render
+const M_PER_MI = 1609.344;
 const EARTH_M = 40_075_016.686;
 // Low is a faint tint so hazards stand out; alpha rides in the color ramp because the heatmap has one opacity.
 const HEAT_ALPHA = [70, 150, 185, 215, 230];
@@ -80,7 +84,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
   const markers = useRef<Marker[]>([]);
   const [truckEls, setTruckEls] = useState<HTMLElement[]>([]);
   const [pinEls, setPinEls] = useState<HTMLElement[]>([]);
-  const [cellPx, setCellPx] = useState(0); // one grid cell on screen, so the blur follows zoom
+  const [milePx, setMilePx] = useState(0); // one mile on screen, so the blur follows zoom and grid spacing
 
   useEffect(() => {
     const c = (name: keyof typeof tokens.color) => tokens.color[name][mode];
@@ -121,7 +125,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
         m.on("mouseleave", layer, () => (m.getCanvas().style.cursor = ""));
       }
       m.on("movestart", () => setPopup(null));
-      const measure = () => setCellPx(CELL_M / ((EARTH_M * Math.cos((m.getCenter().lat * Math.PI) / 180)) / (512 * 2 ** m.getZoom())));
+      const measure = () => setMilePx(M_PER_MI / ((EARTH_M * Math.cos((m.getCenter().lat * Math.PI) / 180)) / (512 * 2 ** m.getZoom())));
       m.on("zoom", measure);
       measure();
       // shortcut: deck 9.4's interleaved mode reads map.transform.height, which MapLibre 6 no longer exposes;
@@ -180,14 +184,17 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
             colorDomain: [0.5, 5],
             colorRange,
             // deck's Gaussian is ~1% by half the radius, so ~4 cells of radius blends neighbours into one field.
-            radiusPixels: Math.min(250, Math.max(16, cellPx * 4)),
+            radiusPixels: Math.min(250, Math.max(16, (heat?.spacingMi ?? 25) * milePx * 4)),
             opacity: 0.8,
+            // Re-aggregating on every slider step is GPU-bound; the default 2048² float texture dropped a
+            // cross-country scrub to ~24 fps on integrated graphics. The field is blurry anyway, so 512² looks the same.
+            weightsTextureSize: 512,
             beforeId: "route-casing", // read by MapboxOverlay: heat under the route lines
           }),
         ],
       }),
     );
-  }, [heat, cellPx, mode]);
+  }, [heat, milePx, mode]);
 
   const truckCount = trucks?.length ?? 0;
   useEffect(() => {

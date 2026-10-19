@@ -77,6 +77,7 @@ const SUGGESTIONS = {
 
 // Two cells; hour h has risk levels [h, null] so the slider position is visible in the mocked map.
 const HEATMAP = {
+  spacing_mi: 25,
   hours: Array.from({ length: 49 }, (_, h) => new Date(Date.UTC(2030, 0, 15, 15 + h)).toISOString()),
   cells: [
     [-100, 41],
