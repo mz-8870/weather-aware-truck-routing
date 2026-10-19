@@ -8,7 +8,7 @@ M_PER_MI = 1609.344
 def straight_route(miles: float, n: int = 101):
     """Points due north along a meridian; progress at constant speed (60 mph)."""
     deg = miles * M_PER_MI / 111_195  # metres per degree of latitude on TomTom's sphere
-    points = [(deg * i / (n - 1), 0.0) for i in range(n)]
+    points = [(round(deg * i / (n - 1), 5), 0.0) for i in range(n)]  # TomTom sends 5 dp
     progress = [(0, 0.0, 0.0), (n - 1, miles * M_PER_MI, miles * 60.0)]
     return points, progress
 

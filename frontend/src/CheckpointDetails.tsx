@@ -20,16 +20,14 @@ const reading = (value: number | null, unit: string, fraction: [number, number] 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function rule(c: Checkpoint): { title: string; text: string } {
-  if (c.level === null)
+  if (c.level === null) {
+    const allMissing = [c.wind_mph, c.gust_mph, c.rain_in_hr, c.snow_in_hr].every((v) => v === null);
+    const what = allMissing ? "The weather service returned no data." : `${c.reasons.map(capitalize).join("; ")}.`;
     return {
       title: "No forecast for this point",
-      text: `The weather service returned no data. These ${c.owned_mi} mi count as unknown and are left out of the average.`,
+      text: `${what} These ${c.owned_mi} mi count as unknown and are left out of the average.`,
     };
-  if (c.beyond_forecast)
-    return {
-      title: "Beyond forecast",
-      text: "ETA is past the latest forecast hour. Using the last available hour — treat as an estimate.",
-    };
+  }
   return { title: `Why ${riskLevel(c.level).label}`, text: c.reasons.map(capitalize).join("; ") };
 }
 
@@ -66,6 +64,12 @@ export function CheckpointDetails({ checkpoint: c, number }: { checkpoint: Check
         <span className={styles.ruleTitle}>{title}</span>
         <span>{text}</span>
       </div>
+      {c.beyond_forecast && c.level !== null && (
+        <div className={styles.rule} data-risk="unknown">
+          <span className={styles.ruleTitle}>Beyond forecast</span>
+          <span>ETA is past the latest forecast hour. Using the last available hour — treat as an estimate.</span>
+        </div>
+      )}
     </div>
   );
 }

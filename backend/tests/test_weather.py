@@ -26,9 +26,11 @@ class FakeOpenMeteo:
         self.sent: list[httpx.Request] = []
         self.body, self.status = body, status
 
-    def client(self) -> httpx.Client:
+    def client(self, fail_first_lat: float | None = None) -> httpx.Client:
         def handle(request: httpx.Request) -> httpx.Response:
             self.sent.append(request)
+            if fail_first_lat is not None and request.url.params["latitude"].startswith(str(fail_first_lat)):
+                raise httpx.ReadTimeout("slow", request=request)
             n = len(request.url.params["latitude"].split(","))
             body = self.body if self.body is not None else [location() for _ in range(n)]
             return httpx.Response(self.status, json=body)
@@ -81,7 +83,30 @@ def test_large_batches_are_chunked() -> None:
     api = FakeOpenMeteo()
     points = [(30 + i / 10, -100.0, HOURS[0]) for i in range(150)]
     assert len(weather.readings(api.client(), points)) == 150
-    assert [len(r.url.params["latitude"].split(",")) for r in api.sent] == [100, 50]
+    assert sorted(len(r.url.params["latitude"].split(",")) for r in api.sent) == [50, 50, 50]
+
+
+def test_a_slow_chunk_only_loses_its_own_points() -> None:
+    api = FakeOpenMeteo()
+    points = [(30 + i / 10, -100.0, HOURS[0]) for i in range(100)]
+    r = weather.readings(api.client(fail_first_lat=30.0), points)
+    assert [x.wind_mph for x in r] == [None] * 50 + [30.0] * 50
+
+
+def test_open_meteo_gets_a_longer_timeout_than_routing() -> None:
+    seen = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request.extensions["timeout"]["read"])
+        return httpx.Response(200, json=[location()])
+
+    weather.readings(httpx.Client(transport=httpx.MockTransport(handle)), [(39.74, -104.99, HOURS[0])])
+    assert seen == [weather.TIMEOUT_S]
+
+
+def test_malformed_reply_gives_unknown_not_an_error() -> None:
+    (r,) = weather.readings(FakeOpenMeteo(body=[{"nope": 1}]).client(), [(39.74, -104.99, HOURS[0])])
+    assert r == weather.UNKNOWN
 
 
 def test_weather_outage_gives_unknown_readings() -> None:

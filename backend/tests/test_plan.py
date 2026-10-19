@@ -208,3 +208,18 @@ def test_routing_error_does_not_carry_the_api_key() -> None:
     with httpx.Client(transport=httpx.MockTransport(fail)) as c, pytest.raises(tomtom.RoutingError) as e:
         tomtom.geocode(c, "Denver")
     assert "key=" not in str(e.value)
+
+
+def test_same_place_by_different_names_returns_422(client: Client, tomtom_api: FakeTomTom) -> None:
+    def zero_length(request: httpx.Request) -> httpx.Response:
+        if request.url.path.startswith("/routing/"):
+            point = {"latitude": 39.7392, "longitude": -104.9903}
+            zero = {"pointIndex": 0, "distanceInMeters": 0, "travelTimeInSeconds": 0}
+            route = {"summary": {"lengthInMeters": 0, "travelTimeInSeconds": 0}, "legs": [{"points": [point, point]}], "progress": [zero]}
+            return httpx.Response(200, json={"routes": [route]})
+        return tomtom_ok(request)
+
+    tomtom_api.handler = zero_length
+    response = post(client, trip(destination="Denver Colorado"))
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Origin and destination are the same place."

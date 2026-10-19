@@ -73,6 +73,8 @@ def truck_route(
     if not body.get("routes"):
         raise NotFound("No truck route found for this trip.")
     route = body["routes"][0]
+    if route["summary"]["lengthInMeters"] == 0:  # e.g. "Denver, CO" -> "Denver Colorado"
+        raise NotFound("Origin and destination are the same place.")
     return Route(
         points=[(p["latitude"], p["longitude"]) for leg in route["legs"] for p in leg["points"]],
         progress=[(p["pointIndex"], p["distanceInMeters"], p["travelTimeInSeconds"]) for p in route["progress"]],

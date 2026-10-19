@@ -1,13 +1,16 @@
 """Hourly weather at (lat, lon, hour) points from one batched Open-Meteo call, in imperial units."""
 
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import NamedTuple
 
 import httpx
 
 URL = "https://api.open-meteo.com/v1/forecast"
-CHUNK = 100  # locations per request, keeps the URL short
+CHUNK = 50  # locations per request: cold Open-Meteo replies for 100 took 12-23 s
+PARALLEL = 4  # chunks in flight at once
+TIMEOUT_S = 30  # Open-Meteo is slower than routing; its own budget
 CACHE_SIZE = 50_000
 MAX_FORECAST_DAYS = 16
 
@@ -23,12 +26,13 @@ class Reading(NamedTuple):
 UNKNOWN = Reading(None, None, None, None, False)
 
 Key = tuple[float, float, str]
+# shortcut: entries never expire, so a warm instance can serve a forecast that has since been updated;
+# add a TTL (~1 h, Open-Meteo's update cadence) if instances live long.
 _cache: OrderedDict[Key, Reading] = OrderedDict()  # per serverless instance
 
 
 def clear_cache() -> None:
     _cache.clear()
-
 
 
 def _key(lat: float, lon: float, hour: datetime) -> Key:
@@ -53,34 +57,36 @@ def _reading(hourly: dict, hour: str) -> Reading:
     )
 
 
+def _fetch_chunk(client: httpx.Client, chunk: list[tuple[float, float]], keys: list[Key], days: int) -> dict[Key, Reading]:
+    try:
+        response = client.get(
+            URL,
+            params={
+                "latitude": ",".join(str(lat) for lat, _ in chunk),
+                "longitude": ",".join(str(lon) for _, lon in chunk),
+                "hourly": "wind_speed_10m,wind_gusts_10m,rain,snowfall",
+                "wind_speed_unit": "mph",
+                "timezone": "GMT",
+                "forecast_days": days,
+            },
+            timeout=TIMEOUT_S,
+        )
+        response.raise_for_status()
+        body = response.json()
+        by_coord = dict(zip(chunk, body if isinstance(body, list) else [body]))
+        return {k: _reading(by_coord[(k[0], k[1])]["hourly"], k[2]) for k in keys if (k[0], k[1]) in by_coord}
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+        return {}  # these points stay Unknown, and uncached so a later request retries
+
+
 def _fetch(client: httpx.Client, keys: list[Key]) -> dict[Key, Reading]:
     coords = sorted({(lat, lon) for lat, lon, _ in keys})
     last_day = max(datetime.fromisoformat(h).date() for _, _, h in keys)
     days = min(MAX_FORECAST_DAYS, max(1, (last_day - datetime.now(timezone.utc).date()).days + 1))
-    found: dict[Key, Reading] = {}
-    for start in range(0, len(coords), CHUNK):
-        chunk = coords[start : start + CHUNK]
-        try:
-            response = client.get(
-                URL,
-                params={
-                    "latitude": ",".join(str(lat) for lat, _ in chunk),
-                    "longitude": ",".join(str(lon) for _, lon in chunk),
-                    "hourly": "wind_speed_10m,wind_gusts_10m,rain,snowfall",
-                    "wind_speed_unit": "mph",
-                    "timezone": "GMT",
-                    "forecast_days": days,
-                },
-            )
-            response.raise_for_status()
-            body = response.json()
-        except (httpx.HTTPError, ValueError):
-            continue  # those points stay Unknown, and uncached so a later request retries
-        by_coord = dict(zip(chunk, body if isinstance(body, list) else [body]))
-        for key in keys:
-            if (key[0], key[1]) in by_coord:
-                found[key] = _reading(by_coord[(key[0], key[1])]["hourly"], key[2])
-    return found
+    chunks = [coords[i : i + CHUNK] for i in range(0, len(coords), CHUNK)]
+    with ThreadPoolExecutor(PARALLEL) as pool:
+        parts = pool.map(lambda chunk: _fetch_chunk(client, chunk, keys, days), chunks)
+    return {k: r for part in parts for k, r in part.items()}
 
 
 def readings(client: httpx.Client, points: list[tuple[float, float, datetime]]) -> list[Reading]:

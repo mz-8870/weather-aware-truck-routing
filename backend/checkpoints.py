@@ -60,7 +60,7 @@ def checkpoints(
     def at(d: float) -> list[float]:
         j, f = _locate(cum_mi, d)
         (lat1, lon1), (lat2, lon2) = points[j], points[j + 1]
-        return [lon1 + f * (lon2 - lon1), lat1 + f * (lat2 - lat1)]
+        return [round(lon1 + f * (lon2 - lon1), 5), round(lat1 + f * (lat2 - lat1), 5)]  # TomTom's precision
 
     result = []
     for k, mile in enumerate(miles):

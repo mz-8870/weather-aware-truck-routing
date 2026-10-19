@@ -49,9 +49,19 @@ test("unknown checkpoint shows dashes and explains the missing data", () => {
   expect(screen.getByText(/These 25 mi count as unknown/)).toBeTruthy();
 });
 
-test("beyond-forecast checkpoint says it is an estimate", () => {
-  render(<CheckpointDetails checkpoint={{ ...base, level: 1, beyond_forecast: true }} number={61} />);
+test("beyond-forecast checkpoint keeps its rule and says it is an estimate", () => {
+  const beyond = { ...base, level: 1, beyond_forecast: true, reasons: ["wind 28 mph: Moderate"] };
+  render(<CheckpointDetails checkpoint={beyond} number={61} />);
   expect(screen.getByText("Moderate")).toBeTruthy();
+  expect(screen.getByText("Why Moderate")).toBeTruthy();
+  expect(screen.getByText("Wind 28 mph: Moderate")).toBeTruthy();
   expect(screen.getByText("Beyond forecast")).toBeTruthy();
   expect(screen.getByText(/treat as an estimate/)).toBeTruthy();
+});
+
+test("partly missing data names what is missing", () => {
+  const partial = { ...base, level: null, rain_in_hr: null, reasons: ["rain missing"] };
+  render(<CheckpointDetails checkpoint={partial} number={3} />);
+  expect(screen.getByText("No forecast for this point")).toBeTruthy();
+  expect(screen.getByText(/^Rain missing\. These 25 mi count as unknown/)).toBeTruthy();
 });
