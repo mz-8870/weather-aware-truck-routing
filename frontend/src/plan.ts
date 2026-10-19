@@ -18,11 +18,30 @@ export type Checkpoint = {
 
 export type Segment = { level: number | null; coordinates: [number, number][] };
 
-export type Route = { distance_mi: number; duration_s: number; checkpoints: Checkpoint[]; segments: Segment[] };
+export type Summary = { severe_mi: number; high_mi: number; unknown_mi: number; notravel_mi: number; avg_risk: number | null };
+
+export type Route = {
+  name: string;
+  distance_mi: number;
+  duration_s: number;
+  synthesized: boolean; // a via-point detour added because TomTom returned fewer than 3 routes
+  detour_via: string | null;
+  summary: Summary;
+  checkpoints: Checkpoint[];
+  segments: Segment[];
+};
+
+export type Plan = {
+  routes: Route[]; // best first
+  recommended: number | null; // null when every route crosses No Travel
+  why: string | null;
+  routes_found: number; // how many TomTom returned before detours
+  cargo_lb: number;
+};
 
 export type ApiError = { status: number; body: Record<string, string[] | string> };
 
-export async function planTrip(trip: Trip): Promise<{ routes: Route[] }> {
+export async function planTrip(trip: Trip): Promise<Plan> {
   const res = await fetch("/api/plan", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

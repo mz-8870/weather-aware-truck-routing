@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from time import sleep
 from datetime import datetime, timezone
 from typing import NamedTuple
 
@@ -11,6 +12,7 @@ URL = "https://api.open-meteo.com/v1/forecast"
 CHUNK = 50  # locations per request: cold Open-Meteo replies for 100 took 12-23 s
 PARALLEL = 4  # chunks in flight at once
 TIMEOUT_S = 30  # Open-Meteo is slower than routing; its own budget
+RETRY_DELAY_S = 1  # one retry for "service is overloaded" 503s / 429s, which fail fast
 CACHE_SIZE = 50_000
 MAX_FORECAST_DAYS = 16
 
@@ -58,19 +60,19 @@ def _reading(hourly: dict, hour: str) -> Reading:
 
 
 def _fetch_chunk(client: httpx.Client, chunk: list[tuple[float, float]], keys: list[Key], days: int) -> dict[Key, Reading]:
+    params = {
+        "latitude": ",".join(str(lat) for lat, _ in chunk),
+        "longitude": ",".join(str(lon) for _, lon in chunk),
+        "hourly": "wind_speed_10m,wind_gusts_10m,rain,snowfall",
+        "wind_speed_unit": "mph",
+        "timezone": "GMT",
+        "forecast_days": days,
+    }
     try:
-        response = client.get(
-            URL,
-            params={
-                "latitude": ",".join(str(lat) for lat, _ in chunk),
-                "longitude": ",".join(str(lon) for _, lon in chunk),
-                "hourly": "wind_speed_10m,wind_gusts_10m,rain,snowfall",
-                "wind_speed_unit": "mph",
-                "timezone": "GMT",
-                "forecast_days": days,
-            },
-            timeout=TIMEOUT_S,
-        )
+        response = client.get(URL, params=params, timeout=TIMEOUT_S)
+        if response.status_code in (429, 503):
+            sleep(RETRY_DELAY_S)
+            response = client.get(URL, params=params, timeout=TIMEOUT_S)
         response.raise_for_status()
         body = response.json()
         by_coord = dict(zip(chunk, body if isinstance(body, list) else [body]))

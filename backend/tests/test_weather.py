@@ -112,3 +112,11 @@ def test_malformed_reply_gives_unknown_not_an_error() -> None:
 def test_weather_outage_gives_unknown_readings() -> None:
     (r,) = weather.readings(FakeOpenMeteo(status=500).client(), [(39.74, -104.99, HOURS[0])])
     assert r == weather.Reading(None, None, None, None, False)
+
+
+def test_overloaded_reply_is_retried_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "RETRY_DELAY_S", 0)
+    replies = [httpx.Response(503, json={"reason": "The service is overloaded", "error": True}), httpx.Response(200, json=[location()])]
+    client = httpx.Client(transport=httpx.MockTransport(lambda request: replies.pop(0)))
+    (r,) = weather.readings(client, [(39.74, -104.99, HOURS[0])])
+    assert r.wind_mph == 30.0

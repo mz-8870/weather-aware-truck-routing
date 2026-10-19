@@ -1,0 +1,151 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.card[data-selected="true"] {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 thin var(--color-brand);
+}
+
+.card:focus-visible {
+  outline: medium solid var(--color-focus-ring);
+  outline-offset: thin;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+}
+
+.name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.via {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tag[data-tone="notravel"] {
+  background: var(--risk-notravel);
+  color: var(--risk-on-strong);
+}
+
+.tagIcon {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.duration {
+  font: 600 var(--text-xl) var(--font-mono);
+}
+
+.distance {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.bar {
+  display: flex;
+  gap: calc(var(--space-1) / 2);
+  height: var(--space-2);
+}
+
+.bar span {
+  border-radius: var(--radius-full);
+}
+
+.stats {
+  display: flex;
+  margin: 0;
+}
+
+.stat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--space-1) / 2);
+}
+
+.stat dt {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.stat dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.why {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) calc(var(--space-2) + var(--space-1) / 2);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-subtle);
+  font-size: var(--text-xs);
+}
+
+.whyIcon {
+  flex: none;
+  width: calc(var(--space-3) + var(--space-1) / 2);
+  height: calc(var(--space-3) + var(--space-1) / 2);
+  color: var(--color-brand);
+}
+
+.bar [data-risk="low"], .dot[data-risk="low"] { background: var(--risk-low); }
+.bar [data-risk="moderate"], .dot[data-risk="moderate"] { background: var(--risk-moderate); }
+.bar [data-risk="high"], .dot[data-risk="high"] { background: var(--risk-high); }
+.bar [data-risk="severe"], .dot[data-risk="severe"] { background: var(--risk-severe); }
+.bar [data-risk="notravel"], .dot[data-risk="notravel"] { background: var(--risk-notravel); }
+.bar [data-risk="unknown"], .dot[data-risk="unknown"] { background: var(--risk-unknown); }
