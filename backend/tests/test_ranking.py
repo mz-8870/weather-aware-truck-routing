@@ -17,19 +17,19 @@ def test_summarize_rounds_miles_to_a_tenth() -> None:
 
 
 def test_fewest_severe_miles_wins() -> None:
-    ranking = rank([s(severe=10), s(severe=2, high=99)])
+    ranking = rank([s(severe=10), s(severe=2, high=99, avg=3.9, duration=99999)])  # severe outranks everything after it
     assert ranking.order == [1, 0] and ranking.recommended == 1
     assert ranking.why == "Wins on severe miles: 2.0 mi vs 10.0 mi on Route B."
 
 
 def test_high_miles_break_a_severe_tie() -> None:
-    ranking = rank([s(high=48), s(high=12.5)])
+    ranking = rank([s(high=48, avg=0.1), s(high=12.5, avg=0.9)])  # high outranks avg risk
     assert ranking.order == [1, 0]
     assert ranking.why == "Wins on high miles: 12.5 mi vs 48.0 mi on Route B (both 0 severe)."
 
 
 def test_average_risk_breaks_a_high_tie() -> None:
-    ranking = rank([s(avg=0.65), s(avg=0.42)])
+    ranking = rank([s(avg=0.65, duration=3600), s(avg=0.42, duration=7200)])  # avg risk outranks time
     assert ranking.order == [1, 0]
     assert ranking.why == "Wins on average risk: 0.42 vs 0.65 on Route B (same severe and high miles)."
 

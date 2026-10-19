@@ -4,11 +4,13 @@ import type { Route } from "./plan";
 import { riskLevel } from "./risk";
 import styles from "./RouteCard.module.css";
 
-type Props = { route: Route; recommended: boolean; why: string | null; selected: boolean; onSelect: () => void };
+// Without onSelect (the expanded view) the card is static content, not a button.
+type Props = { route: Route; recommended: boolean; why: string | null; selected: boolean; onSelect?: () => void };
 
 const BAR_ORDER = [0, 1, 2, 3, 4, null];
 
 export function RouteCard({ route, recommended, why, selected, onSelect }: Props) {
+  const Card = onSelect ? "button" : "div";
   const blocked = route.summary.notravel_mi > 0;
   const arrival = route.checkpoints.at(-1)?.eta;
   const total = route.checkpoints.reduce((sum, c) => sum + c.owned_mi, 0) || 1;
@@ -23,7 +25,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
   ];
 
   return (
-    <button type="button" className={styles.card} data-selected={selected} onClick={onSelect}>
+    <Card className={styles.card} data-selected={selected} {...(onSelect && { type: "button", onClick: onSelect, "aria-pressed": selected })}>
       <div className={styles.head}>
         <div className={styles.titles}>
           <span className={styles.name}>{route.name}</span>
@@ -73,6 +75,6 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
           {why}
         </p>
       )}
-    </button>
+    </Card>
   );
 }

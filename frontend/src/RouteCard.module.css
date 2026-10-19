@@ -149,3 +149,7 @@
 .bar [data-risk="severe"], .dot[data-risk="severe"] { background: var(--risk-severe); }
 .bar [data-risk="notravel"], .dot[data-risk="notravel"] { background: var(--risk-notravel); }
 .bar [data-risk="unknown"], .dot[data-risk="unknown"] { background: var(--risk-unknown); }
+
+div.card {
+  cursor: default;
+}

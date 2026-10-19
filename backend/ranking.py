@@ -34,6 +34,7 @@ def summarize(checkpoints: list[tuple[float, int | None]], duration_s: int) -> S
         high_mi=miles(HIGH),
         unknown_mi=miles(None),
         notravel_mi=miles(NO_TRAVEL),
+        # 2 dp: what the why text shows, so it never reports a win as "0.42 vs 0.42"
         avg_risk=round(sum(mi * lv for mi, lv in known) / known_mi, 2) if known_mi else None,
         duration_s=duration_s,
     )

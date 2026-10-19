@@ -87,6 +87,8 @@ test("planning a trip shows three ranked route cards with the recommendation", a
   expect(a.textContent).toContain("12.5 mi");
   expect(a.textContent).toContain(PLAN.why);
   expect(screen.getByRole("button", { name: /^Route B/ }).textContent).not.toContain("Recommended");
+  expect(a.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: /^Route B/ }).getAttribute("aria-pressed")).toBe("false");
   expect(screen.getByText("map: 3 routes, selected 0")).toBeTruthy();
 
   const [url, init] = fetchMock.mock.calls[0];
@@ -105,6 +107,7 @@ test("selecting a card emphasizes its route and lists its checkpoints", async ()
   fireEvent.click(await screen.findByRole("button", { name: /^Route B/ }));
 
   expect(screen.getByText("map: 3 routes, selected 1")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /^Route B/ })).toBeNull(); // expanded card is not a dead button
   expect(screen.getByText("3 checkpoints")).toBeTruthy();
   expect(screen.getByText("#2 · mi 25")).toBeTruthy();
   expect(screen.getByText("Wind 38 mph")).toBeTruthy();
@@ -142,6 +145,12 @@ test("a synthesized detour is explained", async () => {
   expect(await screen.findByText("Only 2 routes found — added a detour")).toBeTruthy();
   expect(screen.getByText("Route B goes via Topeka, KS so you can compare 3 options.")).toBeTruthy();
   expect(screen.getByText("via Topeka, KS · added detour")).toBeTruthy();
+});
+
+test("two detours are announced in the plural", async () => {
+  const d = (name: string) => route(name, { synthesized: true, detour_via: null });
+  renderApp(Response.json({ ...PLAN, routes: [PLAN.routes[0], d("Route B"), d("Route C")], routes_found: 1 }));
+  expect(await screen.findByText("Only 1 route found — added 2 detours")).toBeTruthy();
 });
 
 test("fewer than three routes says why", async () => {

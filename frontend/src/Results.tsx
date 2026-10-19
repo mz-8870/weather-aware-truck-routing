@@ -29,7 +29,7 @@ function detourBanner(plan: Plan) {
   const detours = plan.routes.filter((r) => r.synthesized);
   if (detours.length)
     return {
-      title: `Only ${plural(plan.routes_found)} found — added a detour`,
+      title: `Only ${plural(plan.routes_found)} found — added ${detours.length === 1 ? "a detour" : `${detours.length} detours`}`,
       body: detours
         .map((r) => (r.detour_via ? `${r.name} goes via ${r.detour_via}` : `${r.name} is a detour`))
         .join("; ")
@@ -52,7 +52,7 @@ export function Results({ plan, intervalMi, selected, expanded, onSelect, onBack
           <ArrowLeft aria-hidden className={styles.backIcon} />
           All routes
         </Button>
-        <RouteCard route={route} recommended={selected === plan.recommended} why={plan.why} selected onSelect={() => {}} />
+        <RouteCard route={route} recommended={selected === plan.recommended} why={plan.why} selected />
         <CheckpointList checkpoints={route.checkpoints} intervalMi={intervalMi} />
       </section>
     );
