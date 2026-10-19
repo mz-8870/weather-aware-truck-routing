@@ -382,3 +382,39 @@ def test_bad_truck_parameters_are_rejected(client: Client, tomtom_api: FakeTomTo
     response = post(client, trip(**bad))
     assert response.status_code == 400
     assert set(bad) <= set(response.json())
+
+
+def test_without_hos_the_trip_is_the_drive_time(client: Client, tomtom_api: FakeTomTom) -> None:
+    (route,) = post(client, trip()).json()["routes"]
+    assert route["trip_s"] == route["duration_s"] == 54000
+
+
+def test_hos_breaks_shift_checkpoint_etas_and_the_arrival(client: Client, tomtom_api: FakeTomTom) -> None:
+    (route,) = post(client, trip(hos=True, interval_mi=50)).json()["routes"]
+    cps = route["checkpoints"]
+    assert route["duration_s"] == 54000  # driving time is unchanged
+    assert route["trip_s"] == cps[-1]["offset_s"] == 91800  # 15 h driving + 30 min break + 10 h rest
+    assert cps[0]["offset_s"] == 0
+    first_rest = next(c for c in cps if c["offset_s"] > 11.5 * 3600)
+    assert first_rest["offset_s"] - 21.5 * 3600 > 0  # past 11 h of driving, the 10 h rest is in the clock
+    assert cps[-1]["eta"] == (datetime.fromisoformat(cps[0]["eta"]) + timedelta(seconds=91800)).isoformat()
+
+
+def test_hos_stops_say_where_and_when_the_driver_stops(client: Client, tomtom_api: FakeTomTom) -> None:
+    town = {"addresses": [{"address": {"municipality": "North Platte", "countrySubdivision": "NE"}}]}
+    tomtom_api.handler = lambda r: httpx.Response(200, json=town) if "reverseGeocode" in r.url.path else tomtom_ok(r)
+    body = trip(hos=True)
+    (route,) = post(client, body).json()["routes"]
+    departure = datetime.fromisoformat(body["departure"])
+    assert [(s["kind"], round(s["mile"]), s["duration_s"], s["place"]) for s in route["stops"]] == [
+        ("break", 533, 1800, "North Platte, NE"),  # 8 h into 15 h of driving over 1,000 mi
+        ("rest", 733, 36000, "North Platte, NE"),  # 11 h of driving; starts after the 30 min break
+    ]
+    starts = [datetime.fromisoformat(s["start"]) - departure for s in route["stops"]]
+    assert starts == [timedelta(hours=8), timedelta(hours=11.5)]
+    assert [s["offset_s"] for s in route["stops"]] == [8 * 3600, 11.5 * 3600]
+
+
+def test_without_hos_there_are_no_stops(client: Client, tomtom_api: FakeTomTom) -> None:
+    (route,) = post(client, trip()).json()["routes"]
+    assert route["stops"] == []

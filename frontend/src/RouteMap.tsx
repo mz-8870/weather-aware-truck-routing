@@ -21,6 +21,7 @@ import { Popover } from "./components/Popover";
 import { mapStyle } from "./mapStyle";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
+import { STOP } from "./StopList";
 import styles from "./RouteMap.module.css";
 import { riskRgba, type Mode, type Rgba } from "./tokens/theme";
 import { tokens } from "./tokens/tokens";
@@ -84,6 +85,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
   const markers = useRef<Marker[]>([]);
   const [truckEls, setTruckEls] = useState<HTMLElement[]>([]);
   const [pinEls, setPinEls] = useState<HTMLElement[]>([]);
+  const [stopEls, setStopEls] = useState<HTMLElement[]>([]);
   const [milePx, setMilePx] = useState(0); // one mile on screen, so the blur follows zoom and grid spacing
 
   useEffect(() => {
@@ -226,6 +228,20 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
     };
   }, [routes]);
 
+  // HOS stops of the selected route: where the driver takes a break or a rest.
+  const stops = routes?.[selected]?.stops;
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !stops?.length) return;
+    const els = stops.map(() => document.createElement("div"));
+    const markers = els.map((el, i) => new Marker({ element: el }).setLngLat([stops[i].lon, stops[i].lat]).addTo(m));
+    setStopEls(els);
+    return () => {
+      markers.forEach((mk) => mk.remove());
+      setStopEls([]);
+    };
+  }, [stops]);
+
   const checkpoint = popup && routes?.[selected]?.checkpoints[popup.index];
   const phone = !!checkpoint && window.matchMedia(PHONE).matches;
   return (
@@ -246,6 +262,17 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
           el,
         ),
       )}
+      {stopEls.map((el, i) => {
+        const stop = stops?.[i];
+        if (!stop) return null;
+        const { label, Icon } = STOP[stop.kind];
+        return createPortal(
+          <div className={styles.stop} title={`${label}${stop.place ? ` near ${stop.place}` : ""}`}>
+            <Icon aria-hidden />
+          </div>,
+          el,
+        );
+      })}
       {checkpoint && phone && (
         <div
           className={styles.sheet}

@@ -28,8 +28,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20)
-1. **#15 e2e + perf** — PR open from `issue-15-e2e-perf`. Reviewer agent → fix findings → merge once CI (now including the `e2e` job) is green on the head commit.
-2. Then #16 (README + architecture diagram via diagram-design skill, FUTURE_FEATURES.md incl. HOS breaks — ETAs assume non-stop driving — LOOM_SCRIPT.md; repo public only when the user says so).
+1. **#31 HOS breaks** (added by the user, 2026-10-20) — PR open from `issue-31-hos`. Reviewer agent → fix → merge on green CI.
+2. Then #16 (README + architecture diagram via diagram-design skill, FUTURE_FEATURES.md, LOOM_SCRIPT.md; repo public only when the user says so).
 3. Audit findings still open (from the impeccable pass, PR #27 merged): checkpoint details keyboard access + active checkpoint marker (map), "Why Low" copy, dark-mode severe vs high hue distance (1.36:1).
 4. Dev servers: Django :8000 (autoreload) and Vite :5179, both from `C:\dev\wtr-issues`. Stop Vite before `npm ci` there (it locks `node_modules`).
 5. Headless visual checks without the Playwright MCP: `node <script> <playwright-core path> <outdir> <chrome.exe>` — playwright-core lives in `%LOCALAPPDATA%\npm-cache\_npx\*\node_modules\playwright-core`, Chromium in `%LOCALAPPDATA%\ms-playwright\chromium-1248`. Pass `--use-angle=swiftshader` for WebGL.
@@ -51,7 +51,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 12 | Heatmap + slider + trucks | ✅ merged (#26) |
 | 13 | Loading, empty, error states | ✅ merged (#28) |
 | 14 | Mobile layout + dark mode | ✅ merged (#29) |
-| 15 | E2E + performance | PR open (see Resume here) |
+| 15 | E2E + performance | ✅ merged (#30) |
+| 31 | HOS rest breaks (toggle) | PR open (see Resume here) |
 | 16 | — | Not started |
 
 ## Decisions not obvious from the spec
@@ -81,7 +82,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 - **Phones (#14, ≤40em):** header "Truck Routing" + a Settings popover holding units + theme; the sidebar is a bottom sheet (`.body[data-sheet]` sets `--sheet-h`: 62dvh open / ~120px peek; handle button "Trip panel" with aria-expanded); slider dock sits at `--sheet-h` + gap; legend + caption + ticks hidden; layer chips scroll horizontally; checkpoint details open as a fixed bottom sheet (`role=dialog`, Close) instead of the popover; attribution compact top-right, folded. Coarse pointers get 44px segmented items and slider row. Planning resets the sidebar scroll to the top.
 - **E2E (#15):** `@playwright/test` 1.63.0 (exact; newer releases were < 2 weeks old). `frontend/playwright.config.ts` builds and serves `vite preview` on :4173; `e2e/smoke.spec.ts` answers `/api/plan` + `/api/heatmap` from fixtures and blocks basemap tiles (no backend, no upstreams), runs desktop 1440 + phone 390, and asserts 3 cards, slider scrub with no refetch, CLS < 0.1, no horizontal scroll, and no page/console errors (this caught the production worker bug). Vitest is scoped to `src/`. CI job `e2e` installs Chromium with deps.
 - **Perf (#15, docs/PERF.md):** `frontend/scripts/profile.mjs` profiles Seattle→Miami on the production build (headed, real GPU). Fixes: `setWorkerUrl` (production map was blank), Douglas–Peucker display paths (~15 m; plan 3.0 → 0.49 MB), heatmap `weightsTextureSize: 512` (scrub 24 → 60 fps), heatmap grid widens to 50 mi past 500 cells (Open-Meteo ~600 locations/min) and returns `spacing_mi`.
-- **Accuracy:** distance and drive time are TomTom's truck-profile figures; ETAs assume non-stop driving (no HOS breaks) — call this out in README/FUTURE_FEATURES.
+- **Accuracy:** distance and drive time are TomTom's truck-profile figures (truck weight, departure-time historical traffic). ETAs are non-stop unless the HOS toggle is on.
+- **HOS (#31):** form "Rest breaks: Non-stop | US hours of service" (default off) → `/api/plan` `hos`. `checkpoints.hos_elapsed(drive_s)` adds a 30 min break once a shift's driving passes 8 h and a 10 h rest after 11 h (no 14 h window / weekly limits / split sleeper). With HOS on, checkpoint `offset_s` become wall-clock (so ETAs, weather hours and truck positions include stops); route `trip_s` = arrival offset; `stops` = `hos_stops()` (break at 8 h into each shift, rest at 11 h, none at arrival) with `place` from TomTom reverse geocode (parallel; rural stops can be unnamed) and `offset_s`/`start`/`duration_s`. UI: summary "· HOS breaks", note under results, "N breaks · N rests" on cards, `StopList` in the expanded route, coffee/bed markers for the selected route; `truckPosition` parks the truck through a stop.
 - Stack versions in use: Django 6.1, DRF 3.18, Python 3.12 (CI); Vite 8, React 19, TS 7, Vitest 5, Node 24.
 
 ## Open items for the user

@@ -1,6 +1,6 @@
 import pytest
 
-from checkpoints import checkpoints
+from checkpoints import checkpoints, hos_elapsed, hos_stops
 
 M_PER_MI = 1609.344
 
@@ -77,3 +77,35 @@ def test_display_paths_keep_bends() -> None:
     progress = [(0, 0.0, 0.0), (4, 22_239.0, 1000.0)]
     (cp,) = [c for c in checkpoints(corner, progress, 50)][:1]
     assert [0.0, 0.1] in cp.path  # the corner survives simplification
+
+
+H = 3600
+
+
+@pytest.mark.parametrize(
+    ("drive_h", "wall_h"),
+    [
+        (0, 0),
+        (8, 8),  # the 30 min break comes after 8 h of driving, not at it
+        (9, 9.5),
+        (11, 11.5),  # end of the first shift: no rest needed yet
+        (12, 22.5),  # 11 h + 0.5 h break + 10 h rest + 1 h
+        (19, 29.5),  # second shift's 8 h mark: break not yet taken
+        (20, 31),  # ... and now it has
+        (33, 54.5),  # three full shifts: 2 rests + 3 breaks
+    ],
+)
+def test_hos_elapsed_adds_breaks_and_rests(drive_h: float, wall_h: float) -> None:
+    assert hos_elapsed(drive_h * H) == wall_h * H
+
+
+def test_hos_stops_are_placed_where_the_driving_clock_runs_out() -> None:
+    points, progress = straight_route(1000)  # 60 mph: 16.7 h of driving
+    stops = hos_stops(points, progress)
+    assert [(s.kind, round(s.mile), s.drive_s) for s in stops] == [("break", 480, 8 * H), ("rest", 660, 11 * H)]
+    deg_per_mi = points[-1][0] / 1000
+    assert stops[1].lat == pytest.approx(660 * deg_per_mi, abs=1e-4) and stops[1].lon == 0.0
+
+
+def test_a_short_trip_has_no_stops() -> None:
+    assert hos_stops(*straight_route(400)) == []  # under 8 h at 60 mph

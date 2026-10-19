@@ -27,6 +27,10 @@ const MODES = [
   { value: "cargo", label: "Cargo only" },
   { value: "gross", label: "Gross (truck + cargo)" },
 ] as const;
+const RESTS = [
+  { value: "off", label: "Non-stop" },
+  { value: "on", label: "US hours of service" },
+] as const;
 const MAX_GROSS_LB = 80_000; // SPEC: warn, don't block
 
 const FIELDS = ["origin", "destination", "origin_position", "destination_position", "departure", "weight_lb", "empty_truck_lb", "axle_count", "axle_weight_lb"];
@@ -58,6 +62,7 @@ export default function App() {
     mode: "cargo" as "cargo" | "gross",
     axles: "",
     interval: "25",
+    hos: "off" as "off" | "on",
   });
   // Weights are kept in pounds (what the backend takes) and only shown in the current units,
   // so flipping units never re-rounds them.
@@ -144,6 +149,7 @@ export default function App() {
       axle_count: optionalNumber(form.axles),
       axle_weight_lb: weights.axleWeight,
       interval_mi: 25,
+      hos: form.hos === "on",
     });
   }
 
@@ -162,6 +168,7 @@ export default function App() {
       axle_count: optionalNumber(form.axles),
       axle_weight_lb: weights.axleWeight,
       interval_mi: Number(form.interval),
+      hos: form.hos === "on",
     });
   }
 
@@ -262,6 +269,7 @@ export default function App() {
                     options={[10, 25, 50].map((mi) => ({ value: String(mi), label: f.interval(mi) }))}
                     onChange={(interval) => setForm({ ...form, interval })}
                   />
+                  <SegmentedControl label="Rest breaks" value={form.hos} options={[...RESTS]} onChange={(hos) => setForm({ ...form, hos })} />
                   <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
                     {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
                     Advanced: empty-truck weight, axles
@@ -299,6 +307,7 @@ export default function App() {
                 <Results
                   plan={plan.data}
                   intervalMi={plan.variables.interval_mi}
+                  hos={plan.variables.hos}
                   selected={selected}
                   expanded={expanded}
                   onSelect={(i) => {

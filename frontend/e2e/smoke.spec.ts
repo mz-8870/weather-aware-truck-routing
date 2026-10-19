@@ -26,6 +26,8 @@ function route(name: string, offsetLat: number, minutes: number) {
     detour_via: null,
     summary: { severe_mi: 0, high_mi: name === "Route B" ? 130 : 0, unknown_mi: 0, notravel_mi: 0, avg_risk: 0 },
     checkpoints,
+    trip_s: minutes * 60,
+    stops: [],
     segments: points.slice(1).map((p, i) => ({ level: checkpoints[i + 1].level, coordinates: [[points[i].lon, points[i].lat], [p.lon, p.lat]] })),
   };
 }
