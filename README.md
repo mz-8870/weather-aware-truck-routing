@@ -30,15 +30,19 @@ One httpx client is shared per request by TomTom and Open-Meteo. There is no dat
 
 You need Python 3.12+ and Node 24+, plus a free [TomTom developer key](https://developer.tomtom.com/) (no card needed).
 
+Terminal 1, the backend (http://127.0.0.1:8000), from the repo root:
+
 ```sh
-# backend: http://127.0.0.1:8000
 cd backend
 python -m venv .venv
 .venv/Scripts/pip install -r requirements-dev.txt     # macOS/Linux: .venv/bin/pip
 cp .env.example .env                                  # then set TOMTOM_API_KEY=...
-.venv/Scripts/python manage.py runserver
+.venv/Scripts/python manage.py runserver              # macOS/Linux: .venv/bin/python
+```
 
-# frontend: http://localhost:5173 (proxies /api to :8000)
+Terminal 2, the frontend (http://localhost:5173, proxies `/api` to :8000), from the repo root:
+
+```sh
 cd frontend
 npm ci
 npm run dev
@@ -51,7 +55,7 @@ npm run dev
 | `cd backend && .venv/Scripts/pytest` | Every classification and load-rule edge, checkpoint sampling and mile attribution, ETAs, HOS breaks and stops, ranking, the heatmap grid, and API contracts with TomTom and Open-Meteo mocked at the HTTP boundary |
 | `cd frontend && npm test` | App behavior through Testing Library: forms, states, results, units, theme, slider and heatmap controls, truck positions and token generation |
 | `cd frontend && npm run typecheck && npm run lint:css` | TypeScript; Stylelint bans raw colors and px in CSS |
-| `cd frontend && npm run e2e` | Playwright smoke test on the production build, desktop and phone: plan → 3 cards → scrub with no refetch, CLS < 0.1, no horizontal scroll, no page errors |
+| `cd frontend && npx playwright install chromium && npm run e2e` | Playwright smoke test on the production build, desktop and phone: plan → 3 cards → scrub with no refetch, CLS < 0.1, no horizontal scroll, no page errors |
 | `cd frontend && node scripts/profile.mjs` | Cross-country frame-rate profile against the real backend ([docs/PERF.md](docs/PERF.md)) |
 
 GitHub Actions runs the backend, frontend and e2e jobs on every pull request and on pushes to `main`.
@@ -64,7 +68,7 @@ Set these environment variables: `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS=.ve
 
 ## Rules and assumptions
 
-These are the full rules agreed in [docs/SPEC.md](docs/SPEC.md); the code implements exactly these.
+These are the rules agreed in [docs/SPEC.md](docs/SPEC.md), plus decisions made during the build (HOS breaks, the 50 mi heatmap fallback, the detour offsets). This section is the current, complete set; the code implements exactly these.
 
 ### Risk classification
 
@@ -91,7 +95,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 ### Checkpoints, ETAs and miles
 
-- **Placement:** checkpoints sit every 10, 25 or 50 mi along the route, plus one at the destination.
+- **Placement:** checkpoints sit at the origin (mile 0), then every 10, 25 or 50 mi along the route, plus one at the destination.
 - **ETAs:** interpolated from TomTom's own distance and travel-time keyframes, which use the truck profile, the weight and historical traffic for the departure time. Mileposts are scaled to TomTom's route length.
 - **Mile attribution:** each checkpoint owns half the gap to each neighbor (nearest-checkpoint attribution). Route summaries add up owned miles per level.
 - **Times:** shown in the browser's time zone, with elapsed time since departure. Departures in the past are rejected.
@@ -135,7 +139,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 ## API
 
-All endpoints are JSON. Validation errors return `400 {field: [message]}`.
+All endpoints are JSON. Validation errors return `400 {field: [message]}`. Weights must be ≥ 0, and `axle_weight_lb` ≥ 1.
 
 ### `POST /api/plan`
 
@@ -152,7 +156,7 @@ Request:
   "axle_count": 5,
   "axle_weight_lb": 20000,
   "interval_mi": 25,
-  "hos": false,
+  "hos": true,
   "origin_position": [39.74, -104.99],
   "destination_position": [41.88, -87.63]
 }
@@ -173,7 +177,7 @@ Response `200`:
 ```json
 {
   "routes": [{
-    "name": "Route A", "distance_mi": 1003.4, "duration_s": 54900, "trip_s": 54900,
+    "name": "Route A", "distance_mi": 1003.4, "duration_s": 54900, "trip_s": 92700,
     "synthesized": false, "detour_via": null,
     "summary": { "severe_mi": 0, "high_mi": 12.5, "unknown_mi": 0, "notravel_mi": 0, "avg_risk": 0.3 },
     "checkpoints": [{ "mile": 25, "lat": 39.9, "lon": -104.6, "offset_s": 1500, "eta": "…Z",
@@ -198,6 +202,7 @@ Response `200`:
 | `trip_s` | Departure to arrival, including HOS stops |
 | `offset_s` | Wall-clock seconds after departure |
 | `stops` | Empty unless `hos` is true |
+| `summary.avg_risk` | `null` when every mile is Unknown |
 
 Errors:
 - `422 {detail}`: a place wasn't found, or there is no route. No route adds `"code": "no_route"`.
@@ -215,7 +220,7 @@ Errors:
 
 ### `GET /api/geocode?q=`
 
-Returns `{ suggestions: [{ label, kind, lat, lon }] }`: TomTom typeahead, US only, 5 results. Fewer than 3 characters gives `[]`. Returns `502` if TomTom fails.
+Returns `{ suggestions: [{ label, kind, lat, lon }] }`: TomTom typeahead, US only, 5 results. Fewer than 3 characters gives `[]`. Returns `502` if TomTom fails. It is throttled to 30 requests a minute per IP (`429`).
 
 ## Docs
 
