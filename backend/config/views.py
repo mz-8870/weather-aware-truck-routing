@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, timedelta
 
 from django.utils import timezone
@@ -12,7 +14,7 @@ from heatmap import corridor_grid
 import risk
 import tomtom
 import weather
-from checkpoints import checkpoints
+from checkpoints import BREAK_S, REST_S, checkpoints, hos_elapsed, hos_stops
 
 EMPTY_TRUCK_LB = 35_000  # SPEC default
 
@@ -66,6 +68,7 @@ class TripSerializer(serializers.Serializer):
     axle_count = serializers.IntegerField(min_value=2, max_value=12, required=False)
     axle_weight_lb = serializers.FloatField(min_value=1, required=False)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50], default=25)
+    hos = serializers.BooleanField(default=False)  # US hours-of-service breaks in the ETAs; off = non-stop driving
     origin_position = PositionField()
     destination_position = PositionField()
 
@@ -139,6 +142,27 @@ def _level(res: risk.RiskResult) -> int | None:
 
 def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
     cps = [checkpoints(r.points, r.progress, t["interval_mi"]) for r in routes]
+    if t["hos"]:  # offsets become wall-clock time, so ETAs, weather hours and truck positions include the stops
+        cps = [[replace(c, offset_s=round(hos_elapsed(c.offset_s))) for c in rc] for rc in cps]
+    stops = [hos_stops(r.points, r.progress) if t["hos"] else [] for r in routes]
+    flat = [s for rs in stops for s in rs]
+    with ThreadPoolExecutor(8) as pool:  # nearest town per stop; a failed lookup just leaves it unnamed
+        places = dict(zip(flat, pool.map(lambda s: tomtom.place_name(client, s.lat, s.lon), flat)))
+    stops_json = [
+        [
+            {
+                "kind": s.kind,
+                "mile": s.mile,
+                "lat": s.lat,
+                "lon": s.lon,
+                "start": (t["departure"] + timedelta(seconds=hos_elapsed(s.drive_s))).astimezone(UTC).isoformat(),
+                "duration_s": BREAK_S if s.kind == "break" else REST_S,
+                "place": places[s],
+            }
+            for s in rs
+        ]
+        for rs in stops
+    ]
     etas = [[t["departure"] + timedelta(seconds=c.offset_s) for c in route_cps] for route_cps in cps]
     # One weather batch for every route's checkpoints.
     flat = weather.readings(client, [(c.lat, c.lon, eta) for rc, re in zip(cps, etas) for c, eta in zip(rc, re)])
@@ -159,7 +183,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         "recommended": None if ranked.recommended is None else 0,  # routes are returned best first
         "why": ranked.why,
         "routes": [
-            _route_json(f"Route {'ABC'[n]}", routes[i], summaries[i], cps[i], etas[i], readings[i], results[i])
+            _route_json(f"Route {'ABC'[n]}", routes[i], summaries[i], cps[i], etas[i], readings[i], results[i]) | {"stops": stops_json[i]}
             for n, i in enumerate(ranked.order)
         ],
     }
@@ -169,7 +193,8 @@ def _route_json(name, route, summary, cps, etas, readings, results) -> dict:
     return {
         "name": name,
         "distance_mi": route.distance_mi,
-        "duration_s": route.duration_s,
+        "duration_s": route.duration_s,  # driving time
+        "trip_s": cps[-1].offset_s,  # departure to arrival, including any HOS stops
         "synthesized": route.synthesized,
         "detour_via": route.detour_via,
         "summary": {k: v for k, v in summary._asdict().items() if k != "duration_s"},
