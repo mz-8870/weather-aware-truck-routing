@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import App from "./App";
 
@@ -55,12 +55,31 @@ const PLAN = {
   cargo_lb: 35000,
 };
 
-function renderApp(planResponse: Response | Error, spacing?: string) {
-  const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+const SUGGESTIONS = {
+  suggestions: [
+    { label: "Salt Lake City, UT", kind: "City", lat: 40.758478, lon: -111.888142 },
+    { label: "Salt Lake City International Airport", kind: "Airport", lat: 40.7884, lon: -111.9778 },
+  ],
+};
+
+function stubFetch(planResponse: Response | Error) {
+  const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+    if (url.startsWith("/api/geocode")) {
+      if (url.includes("q=Salt+Lak")) return Response.json({ suggestions: SUGGESTIONS.suggestions.slice(0, 1) });
+      return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
+    }
     if (planResponse instanceof Error) throw planResponse;
     return planResponse;
   });
   vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+const planCall = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.find(([url]) => url === "/api/plan");
+const geocodeCalls = (fetchMock: ReturnType<typeof stubFetch>) => fetchMock.mock.calls.filter(([url]) => url.startsWith("/api/geocode"));
+
+function renderApp(planResponse: Response | Error, spacing?: string) {
+  const fetchMock = stubFetch(planResponse);
   render(
     <QueryClientProvider client={new QueryClient()}>
       <App />
@@ -91,8 +110,7 @@ test("planning a trip shows three ranked route cards with the recommendation", a
   expect(screen.getByRole("button", { name: /^Route B/ }).getAttribute("aria-pressed")).toBe("false");
   expect(screen.getByText("map: 3 routes, selected 0")).toBeTruthy();
 
-  const [url, init] = fetchMock.mock.calls[0];
-  expect(url).toBe("/api/plan");
+  const [, init] = planCall(fetchMock)!;
   expect(JSON.parse(String(init?.body))).toEqual({
     origin: "Denver, CO",
     destination: "Chicago, IL",
@@ -162,7 +180,7 @@ test("fewer than three routes says why", async () => {
 test("checkpoint spacing toggle changes the requested interval", async () => {
   const fetchMock = renderApp(Response.json(PLAN), "10 mi");
   await screen.findByText("3 routes · Route A recommended");
-  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).interval_mi).toBe(10);
+  expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).interval_mi).toBe(10);
 });
 
 test("server validation errors show inline under their fields", async () => {
@@ -190,4 +208,80 @@ test("a network failure shows an alert instead of crashing", async () => {
 test("a 400 without a field error still shows an alert", async () => {
   renderApp(Response.json({ detail: "JSON parse error" }, { status: 400 }));
   expect((await screen.findByRole("alert")).textContent).toBe("JSON parse error");
+});
+
+test("typing 3+ characters suggests places; arrows + Enter pick one and planning uses its coordinates", async () => {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  const destination = screen.getByRole("combobox", { name: "Destination" });
+  fireEvent.change(destination, { target: { value: "Sal" } });
+  fireEvent.change(destination, { target: { value: "Salt La" } });
+
+  expect(await screen.findByRole("option", { name: /Salt Lake City International Airport/ })).toBeTruthy();
+  expect(geocodeCalls(fetchMock).map(([url]) => url)).toEqual(["/api/geocode?q=Salt+La"]); // debounced; "Sal" never sent
+  fireEvent.keyDown(destination, { key: "ArrowUp" }); // wraps to the last option
+  expect(destination.getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[1].id);
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  expect(destination.getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[1].id);
+  fireEvent.keyDown(destination, { key: "Enter" });
+
+  expect((destination as HTMLInputElement).value).toBe("Salt Lake City International Airport");
+  expect(screen.queryByRole("listbox")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
+  fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
+  fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+
+  await screen.findByText("3 routes · Route A recommended");
+  const body = JSON.parse(String(planCall(fetchMock)![1]?.body));
+  expect(body.destination).toBe("Salt Lake City International Airport");
+  expect(body.destination_position).toEqual([40.7884, -111.9778]);
+  expect(body.origin_position).toBeUndefined(); // typed, never picked
+});
+
+test("a refreshed suggestion list resets the highlighted option", async () => {
+  stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  const destination = screen.getByRole("combobox", { name: "Destination" });
+  fireEvent.change(destination, { target: { value: "Salt La" } });
+  await screen.findAllByRole("option");
+  fireEvent.change(destination, { target: { value: "Salt Lak" } });
+  // Within the debounce the old 2-option list is still shown: highlight its second option…
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  // …then the new 1-option list arrives; the highlight must not point past it.
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+  expect(destination.getAttribute("aria-activedescendant")).toBeNull();
+  fireEvent.keyDown(destination, { key: "Enter" }); // nothing active: must not throw
+});
+
+test("editing a picked place drops its coordinates; Escape closes the list", async () => {
+  const fetchMock = stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  const origin = screen.getByRole("combobox", { name: "Origin" });
+  fireEvent.change(origin, { target: { value: "Salt La" } });
+  fireEvent.click(await screen.findByRole("option", { name: /Salt Lake City, UT/ }));
+  fireEvent.change(origin, { target: { value: "Salt Lake City, UT!" } });
+  fireEvent.keyDown(origin, { key: "Escape" });
+  expect(screen.queryByRole("listbox")).toBeNull();
+
+  fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
+  fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
+  fireEvent.change(screen.getByLabelText("Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  await screen.findByText("3 routes · Route A recommended");
+  expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).origin_position).toBeUndefined();
 });

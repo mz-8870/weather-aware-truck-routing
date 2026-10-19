@@ -2,9 +2,10 @@ from datetime import UTC, timedelta
 
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
 import ranking
 import risk
@@ -21,12 +22,45 @@ def health(request: Request) -> Response:
     return Response({"status": "ok"})
 
 
+class GeocodeThrottle(AnonRateThrottle):
+    rate = "30/min"  # per IP: plenty for debounced typing, protects the TomTom free tier
+
+
+@api_view(["GET"])
+@throttle_classes([GeocodeThrottle])
+def geocode(request: Request) -> Response:
+    query = request.query_params.get("q", "").strip()[:200]
+    if len(query) < 3:
+        return Response({"suggestions": []})
+    try:
+        with tomtom.http_client() as client:
+            return Response({"suggestions": tomtom.suggest(client, query)})
+    except tomtom.RoutingError:
+        return Response({"detail": "Place search unavailable. Try again."}, status=502)
+
+
+class PositionField(serializers.ListField):
+    """[lat, lon] picked from autosuggest."""
+
+    def __init__(self, **kwargs):
+        super().__init__(child=serializers.FloatField(), min_length=2, max_length=2, required=False, **kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        # Length is checked by the min/max validators after this runs.
+        if len(value) == 2 and not (-90 <= value[0] <= 90 and -180 <= value[1] <= 180):
+            raise serializers.ValidationError("Latitude must be within ±90 and longitude within ±180.")
+        return value
+
+
 class TripSerializer(serializers.Serializer):
     origin = serializers.CharField(max_length=200)
     destination = serializers.CharField(max_length=200)
     departure = serializers.DateTimeField()
     weight_lb = serializers.FloatField(min_value=0)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50], default=25)
+    origin_position = PositionField()
+    destination_position = PositionField()
 
     def validate_departure(self, value):
         if value < timezone.now():
@@ -34,7 +68,10 @@ class TripSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        if data["origin"].strip().lower() == data["destination"].strip().lower():
+        op, dp = data.get("origin_position"), data.get("destination_position")
+        # Two picked places can share a name ("Pilot Travel Center"), so positions decide when both exist.
+        same = op == dp if op is not None and dp is not None else data["origin"].strip().lower() == data["destination"].strip().lower()
+        if same:
             raise serializers.ValidationError({"destination": ["Destination must differ from origin."]})
         return data
 
@@ -46,8 +83,8 @@ def plan(request: Request) -> Response:
     t = trip.validated_data
     try:
         with tomtom.http_client() as client:
-            origin = tomtom.geocode(client, t["origin"])
-            destination = tomtom.geocode(client, t["destination"])
+            origin = t.get("origin_position") or tomtom.geocode(client, t["origin"])
+            destination = t.get("destination_position") or tomtom.geocode(client, t["destination"])
             routes = tomtom.truck_routes(client, origin, destination, t["departure"], t["weight_lb"])
             found = len(routes)
             routes += _detours(client, routes, origin, destination, t)

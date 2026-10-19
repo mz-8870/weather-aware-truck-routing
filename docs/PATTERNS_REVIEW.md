@@ -17,6 +17,7 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 8. Demo data must be consistent across screens (same checkpoint numbers, miles, ETAs for the same trip).
 9. Contrast: light colors (yellow, orange, grey) carry dark text — use `risk-on-warm`, never white.
 10. Unit conversions near a threshold must not flip a band through float error (e.g. cm→in giving 0.0999999 instead of 0.10) — round at the conversion boundary and test the exact threshold values. Display at the classifier's precision too (24.6 mph must not show as "25 mph").
+12. Before merging, confirm CI ran **on the head commit**: `gh pr checks --watch` returns instantly with "no checks reported" if the run hasn't been created yet — wait for the run (`gh run watch`) instead of merging on that.
 11. Scripted file edits on Windows: run Python with `PYTHONUTF8=1` (or `encoding="utf-8"`) — the default cp1252 silently fails to match `—`, `·`, `→`.
 
 ## Log
@@ -38,3 +39,4 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 | 13 | 2026-10-19 | 🟡 | #6: wrote `/api/plan` validation and 502/422 branches before their tests | Implemented the whole view in one pass after the first red test | Rule 5; when it slips, break each branch on purpose and confirm its test fails (done for #6) |
 | 14 | 2026-10-19 | 🟡 | #7: a Python replace on `CheckpointDetails.tsx` didn't match because the file has `—` | Windows Python opens files as cp1252 by default | Rule 11 (assert the match so it fails loudly — it did) |
 | 15 | 2026-10-19 | 🟡 | #7: popover showed wind 7.6 as "8 mph" while the rule said 7.6 | Display rounding differed from classifier precision | Rule 10 extended |
+| 16 | 2026-10-19 | 🟠 | Merged PR #22 before CI ran on its last (nit-fix) commit | `gh pr checks --watch` printed "no checks reported" (run not yet created) and the chained merge ran anyway | Rule 12; local checks had passed, CI on main confirmed afterwards |

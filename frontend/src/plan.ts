@@ -1,4 +1,12 @@
-export type Trip = { origin: string; destination: string; departure: string; weight_lb: number; interval_mi: number };
+export type Trip = {
+  origin: string;
+  destination: string;
+  origin_position?: [number, number]; // [lat, lon] from autosuggest; absent when the text was typed
+  destination_position?: [number, number];
+  departure: string;
+  weight_lb: number;
+  interval_mi: number;
+};
 
 export type Checkpoint = {
   mile: number;
