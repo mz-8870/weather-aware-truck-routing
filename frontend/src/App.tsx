@@ -3,24 +3,11 @@ import { useState, type FormEvent } from "react";
 import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
+import { SegmentedControl } from "./components/SegmentedControl";
+import { planTrip, type ApiError, type Route, type Trip } from "./plan";
 import { RouteMap } from "./RouteMap";
 
-type Trip = { origin: string; destination: string; departure: string; weight_lb: number };
-type Route = { coordinates: [number, number][]; distance_mi: number; duration_s: number };
-type ApiError = { status: number; body: Record<string, string[] | string> };
-
-async function planTrip(trip: Trip): Promise<{ routes: Route[] }> {
-  const res = await fetch("/api/plan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(trip),
-  }).catch(() => {
-    throw { status: 0, body: { detail: "Can't reach the server. Check your connection and try again." } } satisfies ApiError;
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw { status: res.status, body } satisfies ApiError;
-  return body;
-}
+const SPACINGS = [10, 25, 50].map((mi) => ({ value: String(mi), label: `${mi} mi` }));
 
 const FIELDS = ["origin", "destination", "departure", "weight_lb"];
 
@@ -32,7 +19,7 @@ function duration(seconds: number) {
 }
 
 export default function App() {
-  const [form, setForm] = useState({ origin: "", destination: "", departure: "", weight: "" });
+  const [form, setForm] = useState({ origin: "", destination: "", departure: "", weight: "", interval: "25" });
   const plan = useMutation<{ routes: Route[] }, ApiError, Trip>({ mutationFn: planTrip });
   const route = plan.data?.routes[0];
   const fieldError = (name: string) => {
@@ -50,6 +37,7 @@ export default function App() {
       // datetime-local has no zone; the browser's zone is the user's (SPEC: departure in browser TZ).
       departure: new Date(form.departure).toISOString(),
       weight_lb: Number(form.weight),
+      interval_mi: Number(form.interval),
     });
   }
 
@@ -71,6 +59,12 @@ export default function App() {
             <Field label="Destination" required {...bind("destination")} error={fieldError("destination")} />
             <Field label="Departure" type="datetime-local" required {...bind("departure")} error={fieldError("departure")} />
             <Field label="Weight (lb)" type="number" min={0} required {...bind("weight")} error={fieldError("weight_lb")} />
+            <SegmentedControl
+              label="Checkpoint spacing"
+              value={form.interval}
+              options={SPACINGS}
+              onChange={(interval) => setForm({ ...form, interval })}
+            />
             <Button type="submit" disabled={plan.isPending}>
               Plan routes
             </Button>
@@ -94,7 +88,7 @@ export default function App() {
           )}
         </aside>
         <main className={styles.map}>
-          <RouteMap coordinates={route?.coordinates} />
+          <RouteMap route={route} />
         </main>
       </div>
     </div>
