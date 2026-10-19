@@ -2,9 +2,10 @@ from datetime import UTC, timedelta
 
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
 import ranking
 import risk
@@ -21,7 +22,12 @@ def health(request: Request) -> Response:
     return Response({"status": "ok"})
 
 
+class GeocodeThrottle(AnonRateThrottle):
+    rate = "30/min"  # per IP: plenty for debounced typing, protects the TomTom free tier
+
+
 @api_view(["GET"])
+@throttle_classes([GeocodeThrottle])
 def geocode(request: Request) -> Response:
     query = request.query_params.get("q", "").strip()[:200]
     if len(query) < 3:
@@ -62,9 +68,10 @@ class TripSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        same_text = data["origin"].strip().lower() == data["destination"].strip().lower()
-        picked = data.get("origin_position")
-        if same_text or (picked is not None and picked == data.get("destination_position")):
+        op, dp = data.get("origin_position"), data.get("destination_position")
+        # Two picked places can share a name ("Pilot Travel Center"), so positions decide when both exist.
+        same = op == dp if op is not None and dp is not None else data["origin"].strip().lower() == data["destination"].strip().lower()
+        if same:
             raise serializers.ValidationError({"destination": ["Destination must differ from origin."]})
         return data
 

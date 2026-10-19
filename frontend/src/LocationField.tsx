@@ -34,6 +34,9 @@ export function LocationField({ label, value, onChange, onPick, error }: Props) 
     return () => clearTimeout(timer);
   }, [value]);
 
+  // A new list replaces the old one, so a highlight from the old list is meaningless.
+  useEffect(() => setActive(-1), [query]);
+
   const { data: places = [] } = useQuery({
     queryKey: ["suggest", query],
     queryFn: () => suggest(query),
@@ -52,9 +55,9 @@ export function LocationField({ label, value, onChange, onPick, error }: Props) 
     if (!shown) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      const step = e.key === "ArrowDown" ? 1 : -1;
-      setActive((i) => (i + step + places.length) % places.length);
-    } else if (e.key === "Enter" && active >= 0) {
+      const n = places.length;
+      setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : i <= 0 ? n - 1 : i - 1));
+    } else if (e.key === "Enter" && places[active]) {
       e.preventDefault(); // pick, don't submit the form
       pick(places[active]);
     } else if (e.key === "Escape") {
@@ -88,7 +91,7 @@ export function LocationField({ label, value, onChange, onPick, error }: Props) 
           <ul id={listId} role="listbox" aria-label={`${label} suggestions`} className={styles.list}>
             {places.map((p, i) => (
               <li
-                key={`${p.lat},${p.lon}`}
+                key={i}
                 id={`${listId}-${i}`}
                 role="option"
                 aria-selected={i === active}

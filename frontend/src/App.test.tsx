@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import App from "./App";
 
@@ -64,7 +64,10 @@ const SUGGESTIONS = {
 
 function stubFetch(planResponse: Response | Error) {
   const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-    if (url.startsWith("/api/geocode")) return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
+    if (url.startsWith("/api/geocode")) {
+      if (url.includes("q=Salt+Lak")) return Response.json({ suggestions: SUGGESTIONS.suggestions.slice(0, 1) });
+      return Response.json(url.includes("q=Salt") ? SUGGESTIONS : { suggestions: [] });
+    }
     if (planResponse instanceof Error) throw planResponse;
     return planResponse;
   });
@@ -215,11 +218,13 @@ test("typing 3+ characters suggests places; arrows + Enter pick one and planning
     </QueryClientProvider>,
   );
   const destination = screen.getByRole("combobox", { name: "Destination" });
-  fireEvent.change(destination, { target: { value: "Sa" } });
+  fireEvent.change(destination, { target: { value: "Sal" } });
   fireEvent.change(destination, { target: { value: "Salt La" } });
 
   expect(await screen.findByRole("option", { name: /Salt Lake City International Airport/ })).toBeTruthy();
-  expect(geocodeCalls(fetchMock).map(([url]) => url)).toEqual(["/api/geocode?q=Salt+La"]); // debounced; "Sa" never sent
+  expect(geocodeCalls(fetchMock).map(([url]) => url)).toEqual(["/api/geocode?q=Salt+La"]); // debounced; "Sal" never sent
+  fireEvent.keyDown(destination, { key: "ArrowUp" }); // wraps to the last option
+  expect(destination.getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[1].id);
   fireEvent.keyDown(destination, { key: "ArrowDown" });
   fireEvent.keyDown(destination, { key: "ArrowDown" });
   expect(destination.getAttribute("aria-activedescendant")).toBe(screen.getAllByRole("option")[1].id);
@@ -237,6 +242,26 @@ test("typing 3+ characters suggests places; arrows + Enter pick one and planning
   expect(body.destination).toBe("Salt Lake City International Airport");
   expect(body.destination_position).toEqual([40.7884, -111.9778]);
   expect(body.origin_position).toBeUndefined(); // typed, never picked
+});
+
+test("a refreshed suggestion list resets the highlighted option", async () => {
+  stubFetch(Response.json(PLAN));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  const destination = screen.getByRole("combobox", { name: "Destination" });
+  fireEvent.change(destination, { target: { value: "Salt La" } });
+  await screen.findAllByRole("option");
+  fireEvent.change(destination, { target: { value: "Salt Lak" } });
+  // Within the debounce the old 2-option list is still shown: highlight its second option…
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  fireEvent.keyDown(destination, { key: "ArrowDown" });
+  // …then the new 1-option list arrives; the highlight must not point past it.
+  await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+  expect(destination.getAttribute("aria-activedescendant")).toBeNull();
+  fireEvent.keyDown(destination, { key: "Enter" }); // nothing active: must not throw
 });
 
 test("editing a picked place drops its coordinates; Escape closes the list", async () => {

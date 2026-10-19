@@ -63,6 +63,15 @@ def _kind(result: dict) -> str:
     return {"Street": "Street", "Cross Street": "Intersection"}.get(result["type"], "Address")
 
 
+def _label(result: dict) -> str:
+    address = result["address"]
+    if result["type"] != "POI":
+        return address["freeformAddress"]
+    # POI names repeat ("Pilot Travel Center" x5): add the town so suggestions are distinguishable.
+    town = ", ".join(p for p in (address.get("municipality"), address.get("countrySubdivision")) if p)
+    return f"{result['poi']['name']}, {town}" if town else result["poi"]["name"]
+
+
 def suggest(client: httpx.Client, query: str) -> list[dict]:
     """Typeahead suggestions for a partly typed place, US only (as the rest of the app)."""
     results = _get(
@@ -72,7 +81,7 @@ def suggest(client: httpx.Client, query: str) -> list[dict]:
     ).get("results", [])
     return [
         {
-            "label": r["poi"]["name"] if r["type"] == "POI" else r["address"]["freeformAddress"],
+            "label": _label(r),
             "kind": _kind(r),
             "lat": r["position"]["lat"],
             "lon": r["position"]["lon"],
