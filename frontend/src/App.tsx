@@ -4,24 +4,25 @@ import styles from "./App.module.css";
 import { Button } from "./components/Button";
 import { Field } from "./components/Field";
 import { SegmentedControl } from "./components/SegmentedControl";
-import { planTrip, type ApiError, type Route, type Trip } from "./plan";
+import { planTrip, type ApiError, type Plan, type Trip } from "./plan";
+import { Results } from "./Results";
 import { RouteMap } from "./RouteMap";
 
 const SPACINGS = [10, 25, 50].map((mi) => ({ value: String(mi), label: `${mi} mi` }));
 
 const FIELDS = ["origin", "destination", "departure", "weight_lb"];
 
-const miles = (mi: number) => `${mi.toLocaleString("en-US", { maximumFractionDigits: 1 })} mi`;
-
-function duration(seconds: number) {
-  const minutes = Math.round(seconds / 60);
-  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
-}
-
 export default function App() {
   const [form, setForm] = useState({ origin: "", destination: "", departure: "", weight: "", interval: "25" });
-  const plan = useMutation<{ routes: Route[] }, ApiError, Trip>({ mutationFn: planTrip });
-  const route = plan.data?.routes[0];
+  const [selected, setSelected] = useState(0); // routes come best first, so 0 is the recommendation
+  const [expanded, setExpanded] = useState(false);
+  const plan = useMutation<Plan, ApiError, Trip>({
+    mutationFn: planTrip,
+    onSuccess: () => {
+      setSelected(0);
+      setExpanded(false);
+    },
+  });
   const fieldError = (name: string) => {
     const e = plan.error?.status === 400 ? plan.error.body[name] : undefined;
     return Array.isArray(e) ? e[0] : undefined;
@@ -74,21 +75,22 @@ export default function App() {
               {alert}
             </p>
           )}
-          {route && (
-            <div className={styles.summary}>
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Distance</span>
-                <span className={styles.statValue}>{miles(route.distance_mi)}</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Drive time</span>
-                <span className={styles.statValue}>{duration(route.duration_s)}</span>
-              </div>
-            </div>
+          {plan.data && plan.variables && (
+            <Results
+              plan={plan.data}
+              intervalMi={plan.variables.interval_mi}
+              selected={selected}
+              expanded={expanded}
+              onSelect={(i) => {
+                setSelected(i);
+                setExpanded(true);
+              }}
+              onBack={() => setExpanded(false)}
+            />
           )}
         </aside>
         <main className={styles.map}>
-          <RouteMap route={route} />
+          <RouteMap routes={plan.data?.routes} selected={selected} onSelect={setSelected} />
         </main>
       </div>
     </div>

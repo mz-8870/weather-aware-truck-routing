@@ -1,23 +1,14 @@
 import styles from "./CheckpointDetails.module.css";
 import { RiskBadge } from "./components/RiskBadge";
+import { capitalize, dayTime, elapsed } from "./format";
 import type { Checkpoint } from "./plan";
 import { riskLevel } from "./risk";
-
-const time = (iso: string) =>
-  new Date(iso).toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).replace(",", "");
-
-function elapsed(seconds: number) {
-  const minutes = Math.round(seconds / 60);
-  return `+${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-}
 
 // Same precision the classifier saw, so a reading never looks like it crossed a threshold it didn't.
 const reading = (value: number | null, unit: string, fraction: [number, number] = [0, 1]) =>
   value === null
     ? "—"
     : `${value.toLocaleString("en-US", { minimumFractionDigits: fraction[0], maximumFractionDigits: fraction[1] })} ${unit}`;
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function rule(c: Checkpoint): { title: string; text: string } {
   if (c.level === null) {
@@ -47,7 +38,7 @@ export function CheckpointDetails({ checkpoint: c, number }: { checkpoint: Check
             Checkpoint {number} · mile {c.mile.toLocaleString("en-US", { maximumFractionDigits: 1 })}
           </span>
           <span className={styles.eta}>
-            ETA {time(c.eta)} · {elapsed(c.offset_s)}
+            ETA {dayTime(c.eta)} · {elapsed(c.offset_s)}
           </span>
         </div>
         <RiskBadge level={c.level} />

@@ -223,3 +223,102 @@ def test_same_place_by_different_names_returns_422(client: Client, tomtom_api: F
     response = post(client, trip(destination="Denver Colorado"))
     assert response.status_code == 422
     assert response.json()["detail"] == "Origin and destination are the same place."
+
+
+# --- three routes and the recommendation (#8) ---
+
+MIDDLE = [(39.7392, -104.9903), (40.5, -100.0), (41.8781, -87.6298)]
+SOUTH = [(39.7392, -104.9903), (38.0, -96.0), (41.8781, -87.6298)]
+NORTH = [(39.7392, -104.9903), (43.5, -96.0), (41.8781, -87.6298)]
+
+
+def tt_route(points: list[tuple[float, float]], seconds: int) -> dict:
+    last = {"pointIndex": len(points) - 1, "distanceInMeters": 1609344, "travelTimeInSeconds": seconds}
+    return {
+        "summary": {"lengthInMeters": 1609344, "travelTimeInSeconds": seconds},
+        "legs": [{"points": [{"latitude": lat, "longitude": lon} for lat, lon in points]}],
+        "progress": [{"pointIndex": 0, "distanceInMeters": 0, "travelTimeInSeconds": 0}, last],
+    }
+
+
+def windy_north(request: httpx.Request) -> httpx.Response:
+    """Open-Meteo where only latitudes above 42.5 are windy (47 mph -> No Travel for 35,000 lb cargo)."""
+    start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    times = [(start + timedelta(hours=h)).strftime("%Y-%m-%dT%H:00") for h in range(72)]
+    lats = [float(x) for x in request.url.params["latitude"].split(",")]
+
+    def at(lat: float) -> dict:
+        wind = 47.0 if lat > 42.5 else 5.0
+        return {"hourly": {"time": times, "wind_speed_10m": [wind] * 72, "wind_gusts_10m": [wind] * 72, "rain": [0.0] * 72, "snowfall": [0.0] * 72}}
+
+    return httpx.Response(200, json=[at(lat) for lat in lats])
+
+
+def three_routes(direct: list[dict], detour: dict | None = None):
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.open-meteo.com":
+            return windy_north(request)
+        if request.url.path.startswith("/search/2/reverseGeocode/"):
+            return httpx.Response(200, json={"addresses": [{"address": {"municipality": "Topeka", "countrySubdivision": "KS"}}]})
+        if request.url.path.startswith("/routing/") and request.url.path.count(":") == 2:  # origin:via:destination
+            return httpx.Response(200, json={"routes": [detour]}) if detour else httpx.Response(500)
+        if request.url.path.startswith("/routing/"):
+            return httpx.Response(200, json={"routes": direct})
+        return tomtom_ok(request)
+
+    return handle
+
+
+def test_three_alternatives_are_ranked_named_and_recommended(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = three_routes([tt_route(NORTH, 50000), tt_route(SOUTH, 60000), tt_route(MIDDLE, 54000)])
+    body = post(client, trip()).json()
+
+    names = [(r["name"], r["duration_s"]) for r in body["routes"]]
+    assert names == [("Route A", 54000), ("Route B", 60000), ("Route C", 50000)]  # No Travel north route last
+    assert body["recommended"] == 0
+    assert body["cargo_lb"] == 35000
+    assert body["why"] == "Fastest of equally safe routes: 15h 00m vs 16h 40m on Route B."
+    assert body["routes"][2]["summary"]["notravel_mi"] > 0
+    assert body["routes"][0]["summary"] == {"severe_mi": 0, "high_mi": 0, "unknown_mi": 0, "notravel_mi": 0, "avg_risk": 0}
+    assert not any(r.url.path.count(":") == 2 for r in tomtom_api.sent)  # no detour needed
+    routing = next(r for r in tomtom_api.sent if r.url.path.startswith("/routing/"))
+    assert routing.url.params["maxAlternatives"] == "2"
+
+
+def test_missing_alternative_is_synthesized_with_a_detour(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = three_routes([tt_route(MIDDLE, 54000), tt_route(NORTH, 50000)], detour=tt_route(SOUTH, 60000))
+    body = post(client, trip()).json()
+
+    assert body["routes_found"] == 2
+    assert [r["synthesized"] for r in body["routes"]] == [False, True, False]
+    assert body["routes"][1]["detour_via"] == "Topeka, KS"
+
+
+def test_failed_detours_leave_fewer_routes_not_an_error(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = three_routes([tt_route(MIDDLE, 54000), tt_route(NORTH, 50000)], detour=None)
+    response = post(client, trip())
+    assert response.status_code == 200
+    assert len(response.json()["routes"]) == 2
+
+
+def test_detour_that_duplicates_a_route_is_dropped(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = three_routes([tt_route(MIDDLE, 54000), tt_route(NORTH, 50000)], detour=tt_route(MIDDLE, 54000))
+    assert len(post(client, trip()).json()["routes"]) == 2
+
+
+def test_all_routes_blocked_means_no_recommendation(client: Client, tomtom_api: FakeTomTom) -> None:
+    def everywhere_windy(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.open-meteo.com":
+            return open_meteo(request, wind_mph=47.0)
+        return three_routes([tt_route(MIDDLE, 54000), tt_route(SOUTH, 60000), tt_route(NORTH, 50000)])(request)
+
+    tomtom_api.handler = everywhere_windy
+    body = post(client, trip()).json()
+    assert body["recommended"] is None and body["why"] is None
+    assert len(body["routes"]) == 3
+
+
+def test_route_of_identical_points_is_the_same_place(client: Client, tomtom_api: FakeTomTom) -> None:
+    same = tt_route([(39.7392, -104.9903), (39.7392, -104.9903)], 10)  # TomTom says 1,609 km but every point is equal
+    tomtom_api.handler = three_routes([same])
+    assert post(client, trip()).json()["detail"] == "Origin and destination are the same place."
