@@ -43,11 +43,13 @@
 .id {
   font-size: var(--text-sm);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .eta {
   color: var(--color-text-secondary);
   font: var(--text-xs) var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .reading {

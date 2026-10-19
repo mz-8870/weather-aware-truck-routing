@@ -103,10 +103,12 @@
 
 .duration {
   font: 600 var(--text-xl) var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .distance {
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .bar {
