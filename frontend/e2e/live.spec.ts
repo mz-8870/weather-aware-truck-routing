@@ -5,13 +5,14 @@ import { nextHour } from "./fixtures";
 
 test.describe.configure({ mode: "serial" }); // one plan at a time keeps us inside the free tiers
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("units", "imperial")); // the form below types pounds
+});
+
 test("autosuggest → plan Denver to Chicago → routes, checkpoints and the weather layer", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("/");
-  await page.evaluate(() => localStorage.setItem("units", "imperial"));
-  await page.reload();
-
   await page.getByRole("combobox", { name: "Origin" }).fill("Denver");
   await page.getByRole("option", { name: /^Denver, CO/ }).first().click();
   await page.getByRole("combobox", { name: "Destination" }).fill("Chicago");

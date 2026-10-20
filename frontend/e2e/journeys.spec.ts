@@ -98,15 +98,14 @@ test.describe("reading the results", () => {
     await expect(page.getByRole("article")).toHaveCount(3);
   });
 
-  test("a route through No Travel gets a banner and ranks last", async ({ page, api }) => {
+  test("a route through No Travel gets a banner and a No Travel badge", async ({ page, api }) => {
     const blocked = route("Route C", { offsetLat: -0.6, minutes: 540, levels: [0, 0, 4, 0, 0], reasons: ["", "", "wind 58 mph: No Travel"] });
     api.plan({ json: { ...PLAN, routes: [PLAN.routes[0], PLAN.routes[1], blocked] } });
     await page.goto("/");
     await fillTrip(page);
     await page.getByRole("button", { name: "Plan routes" }).click();
     await expect(page.getByText("Route C crosses a No Travel zone")).toBeVisible();
-    await expect(page.getByRole("article", { name: "Route C" })).toContainText("No Travel");
-    await expect(page.getByRole("article").last()).toHaveAccessibleName("Route C");
+    await expect(page.getByRole("article", { name: "Route C" })).toContainText("No Travel"); // ranking itself: backend tests
   });
 
   test("when every route is blocked nothing is recommended", async ({ page, api }) => {
@@ -176,6 +175,8 @@ test.describe("the forecast map", () => {
     await page.getByRole("button", { name: "Play" }).click();
     await expect(slider).toHaveAttribute("aria-valuetext", /^\+[2-9]\d* h, /, { timeout: 5000 });
     await page.getByRole("button", { name: "Pause" }).click();
+    await expect(page.getByRole("button", { name: "Play" })).toBeVisible();
+    await page.waitForTimeout(700); // let any step already scheduled land
     const paused = await slider.getAttribute("aria-valuetext");
     await page.waitForTimeout(1500);
     await expect(slider).toHaveAttribute("aria-valuetext", paused!);
@@ -262,6 +263,7 @@ test.describe("on a phone", () => {
     await page.goto("/");
     await fillTrip(page);
     await page.getByRole("button", { name: "Plan routes" }).click();
+    await expect(page.getByRole("heading", { name: results() })).toBeVisible(); // measure the sheet once it has content
     const handle = page.getByRole("button", { name: "Trip panel" });
     const sheet = page.getByRole("complementary");
     const open = (await sheet.boundingBox())!.height;

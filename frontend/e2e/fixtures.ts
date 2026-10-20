@@ -79,7 +79,7 @@ const PLACES: Record<string, { label: string; kind: string; lat: number; lon: nu
   hon: [{ label: "Honolulu, HI", kind: "City", lat: 21.3099, lon: -157.8581 }],
 };
 
-type Reply = { status?: number; json: unknown; delayMs?: number };
+type Reply = { status?: number; json: unknown };
 
 /** Mocks our own /api at the browser; each endpoint answers from a queue (the last reply repeats). */
 export class Api {
@@ -101,7 +101,6 @@ export class Api {
       this.sent[kind].push(r.request().postDataJSON());
       const queue = this.replies[kind];
       const reply = queue.length > 1 ? queue.shift()! : queue[0];
-      if (reply.delayMs) await new Promise((res) => setTimeout(res, reply.delayMs));
       await r.fulfill({ status: reply.status ?? 200, json: reply.json });
     };
     await this.page.route("**/tiles.openfreemap.org/**", (r) => r.abort()); // hermetic: no basemap needed
