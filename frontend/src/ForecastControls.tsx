@@ -45,9 +45,10 @@ type Props = {
   departure: string;
   status: "pending" | "error" | "success";
   onRetry: () => void;
+  simulated?: boolean; // example trips: the heatmap shows a scripted storm
 };
 
-export function ForecastControls({ layer, onLayer, hour, onHour, departure, status, onRetry }: Props) {
+export function ForecastControls({ layer, onLayer, hour, onHour, departure, status, onRetry, simulated }: Props) {
   const f = useUnits();
   const [playing, setPlaying] = useState(false);
 
@@ -70,6 +71,7 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
           </span>
           <SegmentedControl label="Heatmap" hideLabel value={layer} options={[...LAYERS]} onChange={onLayer} />
         </div>
+        {simulated && layer !== "off" && <p className={styles.chip}>Simulated weather</p>}
         {status === "pending" && layer !== "off" && (
           <p className={styles.chip} role="status">
             <LoaderCircle aria-hidden className={styles.spin} />

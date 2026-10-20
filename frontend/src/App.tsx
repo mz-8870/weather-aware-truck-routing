@@ -10,7 +10,7 @@ import { fetchHeatmap, heatmapQuery, truckPosition, type Variable } from "./heat
 import { SegmentedControl } from "./components/SegmentedControl";
 import { Toast, ToastProvider } from "./components/Toast";
 import { LocationField, type Place } from "./LocationField";
-import { planTrip, type ApiError, type Plan, type Trip } from "./plan";
+import { planTrip, type ApiError, type Demo, type Plan, type Trip } from "./plan";
 import { Results } from "./Results";
 import { RouteMap } from "./RouteMap";
 import { Examples, FormHead, MapEmpty, NoRoute, Outage, Planning, TripSummary, type Example } from "./States";
@@ -69,6 +69,7 @@ export default function App() {
     axles: "",
     interval: "25",
     hos: "off" as "off" | "on",
+    demo: undefined as Demo | undefined, // set by an example; cleared when origin or destination changes
   });
   // Weights are kept in pounds (what the backend takes) and only shown in the current units,
   // so flipping units never re-rounds them.
@@ -94,7 +95,7 @@ export default function App() {
   // Loads after the routes so it never blocks them; the slider then only indexes into this one response.
   const heatmap = useQuery({
     queryKey: ["heatmap", plan.submittedAt],
-    queryFn: () => fetchHeatmap(heatmapQuery(plan.data!.routes, plan.variables!.departure, plan.data!.cargo_lb)),
+    queryFn: () => fetchHeatmap(heatmapQuery(plan.data!.routes, plan.variables!.departure, plan.data!.cargo_lb, plan.variables!.demo)),
     enabled: !!plan.data,
     retry: false, // the backend already retries Open-Meteo; show the error and offer Retry
     staleTime: Infinity,
@@ -142,7 +143,7 @@ export default function App() {
 
   function tryExample(example: Example) {
     const departure = nextHourInput();
-    setForm({ ...form, origin: example.origin, destination: example.destination, departure, mode: "cargo", interval: "25" });
+    setForm({ ...form, origin: example.origin, destination: example.destination, departure, mode: "cargo", interval: "25", demo: example.demo });
     setPicked({});
     setWeights({ ...weights, weight: EXAMPLE_CARGO_LB });
     run({
@@ -156,6 +157,7 @@ export default function App() {
       axle_weight_lb: weights.axleWeight,
       interval_mi: 25,
       hos: form.hos === "on",
+      demo: example.demo,
     });
   }
 
@@ -175,6 +177,7 @@ export default function App() {
       axle_weight_lb: weights.axleWeight,
       interval_mi: Number(form.interval),
       hos: form.hos === "on",
+      demo: form.demo,
     });
   }
 
@@ -243,11 +246,11 @@ export default function App() {
                       value={form[name]}
                       error={fieldError(name) ?? fieldError(`${name}_position`)}
                       onChange={(text) => {
-                        setForm({ ...form, [name]: text });
+                        setForm({ ...form, [name]: text, demo: undefined });
                         setPicked({ ...picked, [name]: undefined });
                       }}
                       onPick={(place) => {
-                        setForm({ ...form, [name]: place.label });
+                        setForm({ ...form, [name]: place.label, demo: undefined });
                         setPicked({ ...picked, [name]: place });
                       }}
                     />
@@ -341,6 +344,7 @@ export default function App() {
                   departure={plan.variables.departure}
                   status={heatmap.status}
                   onRetry={() => heatmap.refetch()}
+                  simulated={!!plan.data.demo}
                 />
               )}
             </main>

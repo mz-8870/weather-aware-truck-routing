@@ -1,4 +1,4 @@
-import type { Checkpoint, Route, Stop } from "./plan";
+import type { Checkpoint, Demo, Route, Stop } from "./plan";
 
 export const VARIABLES = ["risk", "wind", "rain", "snow"] as const;
 export type Variable = (typeof VARIABLES)[number];
@@ -10,7 +10,7 @@ export type Heatmap = {
   levels: Record<Variable, (number | null)[][]>; // [hour][cell] -> 0–4, null = Unknown
 };
 
-export type HeatmapQuery = { points: [number, number][]; departure: string; cargo_lb: number };
+export type HeatmapQuery = { points: [number, number][]; departure: string; cargo_lb: number; demo?: Demo };
 
 export async function fetchHeatmap(query: HeatmapQuery): Promise<Heatmap> {
   const res = await fetch("/api/heatmap", {
@@ -40,8 +40,9 @@ export function truckPosition(
   return [a.lon + (b.lon - a.lon) * t, a.lat + (b.lat - a.lat) * t];
 }
 
-export const heatmapQuery = (routes: Route[], departure: string, cargo_lb: number): HeatmapQuery => ({
+export const heatmapQuery = (routes: Route[], departure: string, cargo_lb: number, demo?: Demo): HeatmapQuery => ({
   points: routes.flatMap((r) => r.checkpoints.map((c): [number, number] => [c.lat, c.lon])),
   departure,
   cargo_lb,
+  demo,
 });

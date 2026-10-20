@@ -416,6 +416,36 @@ test("the empty state explains the map and offers example trips that plan in one
   expect(screen.queryByText("Your routes will appear here")).toBeNull();
 });
 
+test("example trips use a labelled simulated storm until origin or destination changes", async () => {
+  const fetchMock = stubFetch(Response.json({ ...PLAN, demo: "winter-storm" }));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <App />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Denver → Salt Lake City · Winter Storm" }));
+  expect(await screen.findByText("Simulated weather", { selector: "span" })).toBeTruthy();
+  expect(await screen.findByText("Simulated weather", { selector: "p" })).toBeTruthy(); // on the map too
+  fireEvent.click(screen.getByRole("button", { name: "Route B" }));
+  expect(screen.getByText("Simulated weather", { selector: "span" })).toBeTruthy(); // and beside the readings
+  fireEvent.click(screen.getByRole("button", { name: "All Routes" }));
+  expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).demo).toBe("winter-storm");
+  await waitFor(() => expect(heatmapCalls(fetchMock)).toHaveLength(1));
+  expect(JSON.parse(String(heatmapCalls(fetchMock)[0][1]?.body)).demo).toBe("winter-storm");
+
+  const plans = () => fetchMock.mock.calls.filter(([url]) => url === "/api/plan").map(([, init]) => JSON.parse(String(init!.body)));
+  fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
+  await waitFor(() => expect(plans()).toHaveLength(2));
+  expect(plans()[1].demo).toBe("winter-storm"); // re-planning the example (HOS, departure) keeps the storm
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
+  await waitFor(() => expect(plans()).toHaveLength(3));
+  expect(plans()[2].demo).toBeUndefined();
+});
+
 test("while planning, the form collapses to a trip summary above skeleton cards", async () => {
   renderApp(new Promise<Response>(() => {}));
   expect(await screen.findByRole("heading", { name: "Finding routes…" })).toBeTruthy();

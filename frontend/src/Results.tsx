@@ -50,6 +50,13 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
   const clear = plan.earliest_clear_departure;
+  const simulated = plan.demo && (
+    <Banner
+      tone="info"
+      title="Simulated weather"
+      body="This example uses a scripted storm to show how risky routes look. Routes, distances and drive times are real TomTom results; the weather is not. Change the origin or destination to use the live forecast."
+    />
+  );
 
   if (expanded) {
     const route = plan.routes[selected];
@@ -59,6 +66,7 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
           <ArrowLeft aria-hidden className={styles.backIcon} />
           All Routes
         </Button>
+        {simulated}
         <RouteCard route={route} recommended={selected === plan.recommended} why={plan.why} selected />
         {route.stops.length > 0 && <StopList stops={route.stops} />}
         <CheckpointList checkpoints={route.checkpoints} intervalMi={intervalMi} />
@@ -84,6 +92,7 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
         </p>
         <p className={styles.note}>ETAs include bad-weather slowdowns: 90% of normal speed at Moderate, 75% at High, 60% at Severe.</p>
       </div>
+      {simulated}
       {allBlocked ? (
         <>
           <Banner

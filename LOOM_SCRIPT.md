@@ -9,6 +9,7 @@ The script is mapped to the brief's grading: **40% logic, 40% UI/map/heatmap smo
 ## 0:30 – 3:30 · Logic (40%)
 1. **Plan.** Click the **Denver → Salt Lake City · winter storm** example.
    - "TomTom truck routing gives up to three routes. If it returns fewer, I add a via-point detour and say so."
+   - Point at the **Simulated weather** banner. "To be clear about what's real: the routes, distances and drive times are live TomTom results. The weather in this example is a scripted storm over I-80, so you can see a bad day on any day. Your own trips use the live Open-Meteo forecast."
 2. **Checkpoints and ETAs.** Expand Route A.
    - Checkpoints run every 25 mi. "Each ETA is interpolated from TomTom's own distance and time keyframes, so it uses the truck profile and historical traffic for the departure."
    - Open a checkpoint: wind, gusts, rain, snow, the level, and **the rule that set it**.
@@ -19,7 +20,7 @@ The script is mapped to the brief's grading: **40% logic, 40% UI/map/heatmap smo
    - "Units are converted and rounded at the boundary, so 0.1 in/hr never becomes 0.0999 and drops a band. There are tests at every threshold."
 4. **Weight.** Switch to Gross and open Advanced.
    - "TomTom routes on gross weight. The risk rules use cargo." Mention the warning over 80,000 lb.
-5. **Recommendation.** Return to all routes and read the "why" line.
+5. **Recommendation.** Return to all routes. Read the No Travel banner on the I-80 route, the High miles and weather delay on US-40, and the "why" line on the recommended I-70 route.
    - "Ranking is No Travel last, then severe miles, then high miles, then average risk, then time. The UI names the deciding factor."
 6. **Hours of service.** Click Edit, set **Rest Breaks: US Hours of Service** and re-plan.
    - "Arrival moves by the breaks, and the weather is re-checked at the new hours."
@@ -53,7 +54,7 @@ The script is mapped to the brief's grading: **40% logic, 40% UI/map/heatmap smo
   - Thin views.
   - One httpx client per request, mocked at the HTTP boundary in tests.
 - **Tests:**
-  - about 160 pytest tests and 65 Vitest tests
+  - about 190 pytest tests and 80 Vitest tests
   - a Playwright smoke test on the **production build** (desktop and phone) that fails on page errors, layout shift or refetching
   - all in GitHub Actions
 - **Process:**
