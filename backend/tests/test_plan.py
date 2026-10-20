@@ -469,3 +469,49 @@ def test_hos_stops_say_where_and_when_the_driver_stops(client: Client, tomtom_ap
 def test_without_hos_there_are_no_stops(client: Client, tomtom_api: FakeTomTom) -> None:
     (route,) = post(client, trip()).json()["routes"]
     assert route["stops"] == []
+
+
+# --- weather-adjusted speed (#52) ---
+
+
+def test_bad_weather_slows_the_etas_and_counts_as_travel_time(client: Client, tomtom_api: FakeTomTom) -> None:
+    # 30 mph wind everywhere is Moderate: 90% of normal speed for the whole 54,000 s drive.
+    tomtom_api.handler = lambda request: open_meteo(request, wind_mph=30.0) if request.url.host == "api.open-meteo.com" else tomtom_ok(request)
+    (route,) = post(client, trip(weight_lb=10000, weight_mode="cargo")).json()["routes"]
+    assert route["duration_s"] == 60000 and route["trip_s"] == 60000
+    assert route["weather_delay_s"] == 6000
+    assert route["checkpoints"][-1]["offset_s"] == 60000
+    assert route["checkpoints"][-1]["eta"] == (datetime.fromisoformat(route["checkpoints"][0]["eta"]) + timedelta(seconds=60000)).isoformat()
+
+
+def test_calm_weather_adds_no_delay(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = lambda request: open_meteo(request, wind_mph=10.0) if request.url.host == "api.open-meteo.com" else tomtom_ok(request)
+    (route,) = post(client, trip()).json()["routes"]
+    assert route["duration_s"] == 54000 and route["weather_delay_s"] == 0
+
+
+def test_hos_breaks_come_after_the_weather_slowdown(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = lambda request: open_meteo(request, wind_mph=30.0) if request.url.host == "api.open-meteo.com" else tomtom_ok(request)
+    (route,) = post(client, trip(weight_lb=10000, weight_mode="cargo", hos=True)).json()["routes"]
+    # 60,000 s of slowed driving (16.7 h): break at 8 h, rest at 11 h, break at 19 h is past arrival -> +10.5 h.
+    assert route["trip_s"] == 60000 + 1800 + 36000
+    assert [s["kind"] for s in route["stops"]] == ["break", "rest"]
+    assert route["stops"][0]["mile"] == 480.0  # 8 h at 90% of 66.7 mph = 60 mph
+
+
+def test_the_slowed_pass_does_not_refetch_a_failed_place(client: Client, tomtom_api: FakeTomTom, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "CHUNK", 1)  # one place per request, so one place can fail alone
+    monkeypatch.setattr(weather, "RETRY_DELAYS_S", ())
+    failing = "39.74"  # Denver, the first checkpoint
+
+    def moderate_but_one_place_down(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.open-meteo.com":
+            return httpx.Response(503) if request.url.params["latitude"] == failing else open_meteo(request, wind_mph=30.0)
+        return tomtom_ok(request)
+
+    tomtom_api.handler = moderate_but_one_place_down
+    (route,) = post(client, trip(weight_lb=10000, weight_mode="cargo")).json()["routes"]
+    assert route["weather_delay_s"] > 0  # the slowed pass ran
+    assert route["checkpoints"][0]["level"] is None  # the failed place reads Unknown
+    asked = [r for r in tomtom_api.sent if r.url.host == "api.open-meteo.com" and r.url.params["latitude"] == failing]
+    assert len(asked) == 1  # pass 2 reads the cache only: a failed place costs one try, not two
