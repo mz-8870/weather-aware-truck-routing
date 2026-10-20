@@ -64,12 +64,20 @@ def geocode(client: httpx.Client, query: str) -> tuple[float, float]:
     return results[0]["position"]["lat"], results[0]["position"]["lon"]
 
 
+SMALL_WORDS = {"a", "an", "the", "and", "or", "of", "to", "in", "on", "at", "by", "for", "per"}
+
+
+def _title(name: str) -> str:
+    """Badge labels in Title Case, small words lowercase mid-label (PATTERNS rule 16); str.title() breaks "driver's"."""
+    return " ".join(w if i and w in SMALL_WORDS else w[:1].upper() + w[1:] for i, w in enumerate(name.split()))
+
+
 def _kind(result: dict) -> str:
     if result["type"] == "Geography":
         return "City" if result.get("entityType") == "Municipality" else "Region"
     if result["type"] == "POI":
         names = [n["name"] for c in result.get("poi", {}).get("classifications", []) for n in c.get("names", [])]
-        return names[0].title() if names else "Place"  # a badge label: Title Case (rule 16)
+        return _title(names[0]) if names else "Place"
     return {"Street": "Street", "Cross Street": "Intersection"}.get(result["type"], "Address")
 
 

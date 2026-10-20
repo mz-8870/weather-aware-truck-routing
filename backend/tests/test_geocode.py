@@ -92,3 +92,8 @@ def test_two_picked_places_with_the_same_name_are_different_places(client: Clien
 def test_geocode_is_throttled_per_client(client: Client, api: FakeTomTom) -> None:
     statuses = [client.get("/api/geocode", {"q": f"Place {i}"}).status_code for i in range(31)]
     assert statuses[:30] == [200] * 30 and statuses[30] == 429
+
+
+@pytest.mark.parametrize(("name", "badge"), [("place of worship", "Place of Worship"), ("driver's lounge", "Driver's Lounge"), ("airport", "Airport")])
+def test_place_kind_badges_are_title_case_with_small_words_lowercase(name: str, badge: str) -> None:
+    assert tomtom._kind({"type": "POI", "poi": {"classifications": [{"names": [{"name": name}]}]}}) == badge
