@@ -114,8 +114,8 @@ def test_weather_outage_gives_unknown_readings() -> None:
     assert r == weather.Reading(None, None, None, None, False)
 
 
-def test_overloaded_reply_is_retried_once(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(weather, "RETRY_DELAY_S", 0)
+def test_overloaded_reply_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "RETRY_DELAYS_S", (0, 0))
     replies = [httpx.Response(503, json={"reason": "The service is overloaded", "error": True}), httpx.Response(200, json=[location()])]
     client = httpx.Client(transport=httpx.MockTransport(lambda request: replies.pop(0)))
     (r,) = weather.readings(client, [(39.74, -104.99, HOURS[0])])
@@ -126,3 +126,50 @@ def test_a_request_larger_than_the_cache_still_gets_all_its_readings(monkeypatch
     monkeypatch.setattr(weather, "CACHE_SIZE", 2)
     points = [(39.0 + i / 10, -104.9, HOURS[0]) for i in range(5)]
     assert weather.UNKNOWN not in weather.readings(FakeOpenMeteo().client(), points)
+
+
+def test_a_cached_place_answers_another_hour_without_a_new_request() -> None:
+    api = FakeOpenMeteo()
+    weather.readings(api.client(), [(39.74, -104.99, HOURS[0])])
+    (r,) = weather.readings(api.client(), [(39.74, -104.99, HOURS[2])])  # a re-plan with HOS stops shifts the hour
+    assert len(api.sent) == 1
+    assert r.wind_mph == 5.0
+
+
+def test_one_fetch_covers_several_days_so_replans_reuse_it() -> None:
+    api = FakeOpenMeteo()
+    weather.readings(api.client(), [(39.74, -104.99, HOURS[0])])
+    assert int(api.sent[0].url.params["forecast_days"]) == weather.MIN_FORECAST_DAYS
+
+
+def test_an_hour_past_the_cached_days_fetches_more_once() -> None:
+    api = FakeOpenMeteo()
+    far = HOURS[0] + timedelta(days=8)
+    weather.readings(api.client(), [(39.74, -104.99, HOURS[0])])
+    weather.readings(api.client(), [(39.74, -104.99, far)])
+    weather.readings(api.client(), [(39.74, -104.99, far)])
+    assert [int(r.url.params["forecast_days"]) for r in api.sent] == [weather.MIN_FORECAST_DAYS, 9]
+
+
+def test_a_rate_limited_batch_is_retried_with_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "RETRY_DELAYS_S", (0, 0))
+    limited = {"reason": "Minutely API request limit exceeded. Please try again in one minute.", "error": True}
+    replies = [httpx.Response(429, json=limited), httpx.Response(429, json=limited), httpx.Response(200, json=[location()])]
+    client = httpx.Client(transport=httpx.MockTransport(lambda request: replies.pop(0)))
+    (r,) = weather.readings(client, [(39.74, -104.99, HOURS[0])])
+    assert r.wind_mph == 30.0
+
+
+def test_retries_stop_after_the_last_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "RETRY_DELAYS_S", (0, 0))
+    api = FakeOpenMeteo(status=429)
+    (r,) = weather.readings(api.client(), [(39.74, -104.99, HOURS[0])])
+    assert r == weather.UNKNOWN
+    assert len(api.sent) == 3  # first try + two retries, well inside the 60 s function
+
+
+def test_a_reply_missing_a_variable_gives_unknown_not_an_error() -> None:
+    broken = location()
+    del broken["hourly"]["rain"]
+    (r,) = weather.readings(FakeOpenMeteo(body=[broken]).client(), [(39.74, -104.99, HOURS[0])])
+    assert r == weather.UNKNOWN
