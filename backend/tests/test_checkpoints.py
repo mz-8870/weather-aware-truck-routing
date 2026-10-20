@@ -1,6 +1,6 @@
 import pytest
 
-from checkpoints import checkpoints, hos_elapsed, hos_stops
+from checkpoints import checkpoints, hos_elapsed, hos_stops, slowed
 
 M_PER_MI = 1609.344
 
@@ -114,3 +114,24 @@ def test_a_short_trip_has_no_stops() -> None:
 def test_a_trip_ending_exactly_at_a_break_or_rest_needs_no_stop_on_arrival() -> None:
     assert hos_stops(*straight_route(480)) == []  # exactly 8 h at 60 mph: arrives as the break would start
     assert [s.kind for s in hos_stops(*straight_route(660))] == ["break"]  # exactly 11 h: no rest at the door
+
+
+def test_slowed_stretches_each_span_by_the_factors_of_the_checkpoints_owning_its_halves() -> None:
+    points, progress = straight_route(100)  # 60 mph: a checkpoint every 1,500 s at 25 mi
+    cps = checkpoints(points, progress, 25)
+    # Checkpoint 2 drives at 75%: the 750 s on each side of it become 1,000 s.
+    assert [c.offset_s for c in slowed(cps, [1, 1, 0.75, 1, 1])] == [0, 1500, 3250, 5000, 6500]
+    assert [c.mile for c in slowed(cps, [1, 1, 0.75, 1, 1])] == [c.mile for c in cps]  # only time changes
+
+
+def test_slowed_at_full_speed_changes_nothing() -> None:
+    points, progress = straight_route(100)
+    cps = checkpoints(points, progress, 25)
+    assert slowed(cps, [1.0] * len(cps)) == cps
+
+
+def test_stops_follow_slowed_timing_when_given() -> None:
+    points, progress = straight_route(1000)  # 60 mph
+    cps = slowed(checkpoints(points, progress, 25), [0.5] * 41)  # half speed all the way: 30 mph
+    (first, *_) = hos_stops(points, progress, keys=([c.mile for c in cps], [c.offset_s for c in cps]))
+    assert first.kind == "break" and first.mile == 240.0  # 8 h at 30 mph, not 480 mi

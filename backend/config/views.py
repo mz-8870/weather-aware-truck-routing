@@ -14,7 +14,7 @@ from heatmap import corridor_grid
 import risk
 import tomtom
 import weather
-from checkpoints import BREAK_S, REST_S, checkpoints, hos_elapsed, hos_stops
+from checkpoints import BREAK_S, REST_S, checkpoints, hos_elapsed, hos_stops, slowed
 
 EMPTY_TRUCK_LB = 35_000  # SPEC default
 
@@ -140,11 +140,27 @@ def _level(res: risk.RiskResult) -> int | None:
     return None if res.level is None else int(res.level)
 
 
+def _wall_clock(drive: list[list], hos: bool) -> list[list]:
+    """With HOS, drive offsets become wall-clock time, so ETAs, weather hours and truck positions include the stops."""
+    return [[replace(c, offset_s=round(hos_elapsed(c.offset_s))) for c in rc] for rc in drive] if hos else drive
+
+
 def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
-    cps = [checkpoints(r.points, r.progress, t["interval_mi"]) for r in routes]
-    if t["hos"]:  # offsets become wall-clock time, so ETAs, weather hours and truck positions include the stops
-        cps = [[replace(c, offset_s=round(hos_elapsed(c.offset_s))) for c in rc] for rc in cps]
-    stops = [hos_stops(r.points, r.progress) if t["hos"] else [] for r in routes]
+    cargo_lb = t["cargo_lb"]
+    drive = [checkpoints(r.points, r.progress, t["interval_mi"]) for r in routes]
+    # Pass 1: the risk at TomTom's ETAs sets each checkpoint's speed; the weather below is then checked at the slower
+    # ETAs. One pass, not iterated until the ETAs settle (SPEC).
+    first = _wall_clock(drive, t["hos"])
+    first_flat = weather.readings(client, _points(first, _etas(first, t["departure"])))
+    _, risks, _ = _classify(routes, first, first_flat, cargo_lb)
+    slow = [slowed(rc, [SPEED_FACTOR[_level(res)] for res in rr]) for rc, rr in zip(drive, risks)]
+    delays = [s[-1].offset_s - d[-1].offset_s for s, d in zip(slow, drive)]
+    routes = [r._replace(duration_s=s[-1].offset_s) for r, s in zip(routes, slow)]  # ranking uses the slower time
+    cps = _wall_clock(slow, t["hos"])
+    stops = []
+    for r, s, delay in zip(routes, slow, delays):
+        keys = ([c.mile for c in s], [c.offset_s for c in s]) if delay else None  # stops follow the slowed timing
+        stops.append(hos_stops(r.points, r.progress, keys) if t["hos"] else [])
     flat = [s for rs in stops for s in rs]
     # shortcut: one uncached TomTom reverse geocode per stop (~24 for a coast-to-coast HOS plan, free tier 2,500/day);
     # cache by rounded position if HOS plans become frequent.
@@ -166,9 +182,11 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         ]
         for rs in stops
     ]
-    cargo_lb = t["cargo_lb"]
     etas = _etas(cps, t["departure"])
-    readings, results, summaries = _classify(routes, cps, weather.readings(client, _points(cps, etas)), cargo_lb)
+    # Same places as pass 1 at later hours: the cache holds their whole series, and one that failed stays Unknown
+    # rather than costing a second timeout.
+    flat = weather.readings(client, _points(cps, etas), fetch=False) if any(delays) else first_flat
+    readings, results, summaries = _classify(routes, cps, flat, cargo_lb)
     ranked = ranking.rank(summaries)
     names = {i: f"Route {'ABC'[n]}" for n, i in enumerate(ranked.order)}
     clear = None
@@ -188,12 +206,15 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         "why": ranked.why,
         "earliest_clear_departure": clear,
         "routes": [
-            _route_json(names[i], routes[i], summaries[i], cps[i], etas[i], readings[i], results[i]) | {"stops": stops_json[i]}
+            _route_json(names[i], routes[i], summaries[i], cps[i], etas[i], readings[i], results[i]) | {"stops": stops_json[i], "weather_delay_s": delays[i]}
             for n, i in enumerate(ranked.order)
         ],
     }
 
 
+# Fraction of normal speed by checkpoint risk level (#52). No Travel and Unknown keep TomTom's time: a blocked
+# stretch isn't driven at all, and an unknown one has no evidence of a slowdown.
+SPEED_FACTOR = {0: 1.0, 1: 0.9, 2: 0.75, 3: 0.6, 4: 1.0, None: 1.0}
 CLEAR_SEARCH_H = 48  # later departures tried when every route is blocked: the slider's forecast window
 
 
@@ -225,7 +246,7 @@ def _route_json(name, route, summary, cps, etas, readings, results) -> dict:
     return {
         "name": name,
         "distance_mi": route.distance_mi,
-        "duration_s": route.duration_s,  # driving time
+        "duration_s": route.duration_s,  # driving time, including weather slowdowns
         "trip_s": cps[-1].offset_s,  # departure to arrival, including any HOS stops
         "synthesized": route.synthesized,
         "detour_via": route.detour_via,
