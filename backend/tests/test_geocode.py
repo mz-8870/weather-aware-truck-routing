@@ -94,6 +94,6 @@ def test_geocode_is_throttled_per_client(client: Client, api: FakeTomTom) -> Non
     assert statuses[:30] == [200] * 30 and statuses[30] == 429
 
 
-@pytest.mark.parametrize(("name", "badge"), [("place of worship", "Place of Worship"), ("driver's lounge", "Driver's Lounge"), ("airport", "Airport")])
+@pytest.mark.parametrize(("name", "badge"), [("place of worship", "Place of Worship"), ("driver's lounge", "Driver's Lounge"), ("airport", "Airport"), ("hotel/motel", "Hotel/Motel")])
 def test_place_kind_badges_are_title_case_with_small_words_lowercase(name: str, badge: str) -> None:
     assert tomtom._kind({"type": "POI", "poi": {"classifications": [{"names": [{"name": name}]}]}}) == badge
