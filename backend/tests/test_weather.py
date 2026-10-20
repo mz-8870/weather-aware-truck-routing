@@ -173,3 +173,15 @@ def test_a_reply_missing_a_variable_gives_unknown_not_an_error() -> None:
     del broken["hourly"]["rain"]
     (r,) = weather.readings(FakeOpenMeteo(body=[broken]).client(), [(39.74, -104.99, HOURS[0])])
     assert r == weather.UNKNOWN
+
+
+def test_a_series_fetched_on_an_earlier_day_is_refetched_for_hours_past_its_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    api = FakeOpenMeteo()
+    today = datetime.now(timezone.utc).date()
+    monkeypatch.setattr(weather, "_today", lambda: today - timedelta(days=1))  # a warm instance, before UTC midnight
+    weather.readings(api.client(), [(39.74, -104.99, HOURS[0])])
+    monkeypatch.setattr(weather, "_today", lambda: today)
+    past_end = HOURS[-1] + timedelta(hours=3)  # beyond what yesterday's fetch returned
+    weather.readings(api.client(), [(39.74, -104.99, past_end)])
+    weather.readings(api.client(), [(39.74, -104.99, past_end)])  # fetched today now: no loop
+    assert len(api.sent) == 2
