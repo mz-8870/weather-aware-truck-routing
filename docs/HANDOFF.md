@@ -74,6 +74,9 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 40 | Map overlays hiding routes (fit padding) | ✅ merged (#45), verified live |
 | 41 | Phone chip scrollbar | ✅ merged (#44), verified live |
 | 42 | Basemap boundary-filter warning | ✅ merged (#43), verified live |
+| 49 | Earliest clear departure | ✅ merged (#55) |
+| 50 | Route tags on the map + active checkpoint ring | ✅ this PR |
+| 52, 53 | Weather-adjusted speed, casing pass | open, in that order |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -112,6 +115,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
   - On maps too small for that padding, it scales opposite sides down to keep a `min(size/2, 160)` px box; MapLibre otherwise refuses to fit.
   - `RouteMap` re-fits when `sheet` changes.
   - E2E: pins must not sit under any overlay (northeast fixture route), and a 768 px tablet journey must frame the trip.
+- **Route tags (#50):** `mapFit.labelPoints(paths)` gives one `[lon, lat]` per route: route i searches the i-th of n slices of the 20–80% window (by distance), so tags never stack where routes run together, and takes the point farthest from the other routes. `RouteMap` draws them as DOM `Marker`s (anchor bottom, 14 px up to clear the ring; `pointer-events: none`; `aria-hidden`, the cards carry the names), styled from Pencil 04 (selected = brand fill). The open checkpoint gets a ring from the `checkpoint-active` circle layer, whose filter follows `popup.index`. E2E: tags must not sit under any overlay (`pinsHiddenBy(page, "tags")`).
 - **Phone chips (#41):** `scrollbar-width: none` plus `::-webkit-scrollbar` on the chip row; it still scrolls.
 - **E2E infra:** `reuseExistingServer: false`. A concurrent run's preview on :4173 made tests silently run against another build; a clash now fails loudly. Run e2e one at a time.
 - **Deploy (#34):**

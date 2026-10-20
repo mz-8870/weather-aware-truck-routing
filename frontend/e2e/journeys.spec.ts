@@ -146,10 +146,14 @@ test.describe("reading the results", () => {
 });
 
 test.describe("the forecast map", () => {
-  // The pins mark both ends of the trip; nothing the app draws over the map may hide them.
-  async function pinsHiddenBy(page: import("@playwright/test").Page) {
-    const pins = await page.locator(".maplibregl-marker").evaluateAll((els) =>
-      els.filter((e) => e.querySelector("svg.lucide-circle-dot, svg.lucide-flag")).map((e) => e.getBoundingClientRect().toJSON()),
+  // The pins mark both ends of the trip, and tags name the routes; nothing the app draws over the map may hide them.
+  async function pinsHiddenBy(page: import("@playwright/test").Page, kind: "pins" | "tags" = "pins") {
+    const pins = await page.locator(".maplibregl-marker").evaluateAll(
+      (els, kind) =>
+        els
+          .filter((e) => (kind === "pins" ? e.querySelector("svg.lucide-circle-dot, svg.lucide-flag") : /^Route [ABC]$/.test(e.textContent ?? "")))
+          .map((e) => e.getBoundingClientRect().toJSON()),
+      kind,
     );
     const covers = await page.evaluate(() =>
       [...document.querySelectorAll("main > *:not(:first-child), aside")]
@@ -160,7 +164,7 @@ test.describe("the forecast map", () => {
     type Box = { x: number; y: number; width: number; height: number };
     const overlap = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
     const inside = (a: Box, b: Box) => a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height;
-    if (pins.length !== 2) return ["pins missing"];
+    if (pins.length !== (kind === "pins" ? 2 : 3)) return [`${kind} missing`];
     // A pin outside the map (e.g. a fit that never ran) is as hidden as one under a control.
     return pins.flatMap((p) => [...(inside(p, map!) ? [] : ["outside the map"]), ...covers.filter((c) => overlap(p, c)).map((c) => c.name)]);
   }
@@ -176,10 +180,34 @@ test.describe("the forecast map", () => {
     if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
     // The fit animates; wait until it settles clear. On desktop the sidebar sits beside the map, not over it.
     await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
+    await expect.poll(() => pinsHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     if (isMobile) {
       await page.getByRole("button", { name: "Trip panel" }).click(); // collapse: the map re-fits into the larger space
       await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
+      await expect.poll(() => pinsHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     }
+  });
+
+  test("tags name each route on the map; the selected one is filled and its open checkpoint ringed", async ({ page, api, isMobile }) => {
+    const ne = (name: string, offsetLat: number) => route(name, { offsetLat, step: [1.35, 3] });
+    api.plan({ json: { ...PLAN, routes: [ne("Route A", 0), ne("Route B", 0.6), ne("Route C", -0.6)] } });
+    await page.goto("/");
+    await fillTrip(page);
+    await page.getByRole("button", { name: "Plan routes" }).click();
+    const tag = (name: string) => page.locator(".maplibregl-marker", { hasText: new RegExp(`^${name}$`) });
+    for (const name of ["Route A", "Route B", "Route C"]) await expect(tag(name)).toBeVisible();
+    const fill = (name: string) => tag(name).locator("div").evaluate((e) => getComputedStyle(e).backgroundColor);
+    expect(await fill("Route A")).not.toBe(await fill("Route B")); // Route A is selected first
+    if (isMobile) await page.getByRole("button", { name: "Trip panel" }).click(); // the sheet covers the cards' map area otherwise
+    await page.getByRole("button", { name: "Route B" }).click({ force: isMobile });
+    const filled = async () => [await fill("Route A"), await fill("Route B"), await fill("Route C")];
+    await expect.poll(async () => { const [a, b, c] = await filled(); return a === c && b !== c; }).toBe(true); // now Route B
+    await page.waitForTimeout(1200); // the selection doesn't move the map, but the plan's fit may still be easing
+    // The tag's anchor is a vertex of Route B's path, which in these fixtures is a checkpoint, 14 px under the tag.
+    const box = (await tag("Route B").boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height + 14);
+    await expect(page.getByText(/^Checkpoint \d+/).first()).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath("active-checkpoint.png") });
   });
 
   test("on a tablet in portrait the map still frames both ends of the trip", async ({ page, api, isMobile }) => {
