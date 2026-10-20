@@ -1,7 +1,7 @@
 """Checkpoints every N miles along a route, with ETAs and the miles each one owns."""
 
 from bisect import bisect_left, bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import asin, ceil, cos, radians, sin, sqrt
 
 M_PER_MI = 1609.344
@@ -77,9 +77,16 @@ class Stop:
     drive_s: int  # driving done when the stop starts; hos_elapsed(drive_s) is when, after departure
 
 
-def hos_stops(points: list[tuple[float, float]], progress: list[tuple[int, float, float]]) -> list[Stop]:
-    """Where the HOS clock stops the truck: a break 8 h into each shift, a rest after 11 h; none at arrival."""
+def hos_stops(
+    points: list[tuple[float, float]],
+    progress: list[tuple[int, float, float]],
+    keys: tuple[list[float], list[float]] | None = None,
+) -> list[Stop]:
+    """Where the HOS clock stops the truck: a break 8 h into each shift, a rest after 11 h; none at arrival.
+    `keys` (miles, drive seconds) replaces TomTom's timing, e.g. checkpoints `slowed` by the weather."""
     cum_mi, key_mi, key_s = _miles_and_keys(points, progress)
+    if keys:
+        key_mi, key_s = keys
     total_s = key_s[-1]
     times = [(kind, shift * DRIVE_LIMIT_S + at) for shift in range(int(total_s // DRIVE_LIMIT_S) + 1)
              for kind, at in (("break", BREAK_AFTER_S), ("rest", DRIVE_LIMIT_S))]
@@ -91,6 +98,17 @@ def hos_stops(points: list[tuple[float, float]], progress: list[tuple[int, float
         lon, lat = _point_at(points, cum_mi, mile)
         stops.append(Stop(kind, round(mile, 1), lat, lon, drive_s))
     return stops
+
+
+def slowed(cps: list[Checkpoint], factors: list[float]) -> list[Checkpoint]:
+    """Drive offsets at reduced speed: each checkpoint owns half of the span on each side (as it owns the miles), and
+    its half takes 1/factor as long. `factors` are fractions of normal speed, one per checkpoint."""
+    out, total = [cps[0]], float(cps[0].offset_s)
+    for (a, fa), (b, fb) in zip(zip(cps, factors), zip(cps[1:], factors[1:])):
+        half = (b.offset_s - a.offset_s) / 2
+        total += half / fa + half / fb
+        out.append(replace(b, offset_s=round(total)))
+    return out
 
 
 PATH_TOLERANCE_DEG = 0.00015  # ~15 m: below a pixel at route zooms; long trips shrink ~3 MB -> well under Vercel's 4.5 MB

@@ -10,7 +10,6 @@ These are deliberately out of scope for this version. Each item says why it matt
   - sleeper-berth splits
   - the driver's remaining hours at departure as an input
 - **Stops at real places.** Breaks and rests are placed where the driving clock runs out. They could snap to the nearest truck stop or rest area along the route (TomTom Search along a route, category "truck stop"), shifting the ETAs to match.
-- **Weather-adjusted speed.** Drive time is TomTom's, with historical traffic. Heavy snow or high wind could slow the ETA of later checkpoints, and therefore which hour of weather they meet.
 - **Multi-stop trips.** Pickups and drops between origin and destination, using TomTom waypoints.
 
 ## Data and alerts

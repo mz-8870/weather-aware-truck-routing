@@ -106,6 +106,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 - **Placement:** checkpoints sit at the origin (mile 0), then every 10, 25 or 50 mi along the route, plus one at the destination.
 - **ETAs:** interpolated from TomTom's own distance and travel-time keyframes, which use the truck profile, the weight and historical traffic for the departure time. Mileposts are scaled to TomTom's route length.
+- **Weather slowdown:** bad weather slows the truck: 90% of normal speed at Moderate, 75% at High, 60% at Severe (No Travel and Unknown keep TomTom's time). Each checkpoint's risk at TomTom's ETAs sets the speed over the half-interval on each side; the weather is then checked again at the slower ETAs. One pass, not iterated. HOS stops are added after slowing, and ranking uses the slower travel time.
 - **Mile attribution:** each checkpoint owns half the gap to each neighbor (nearest-checkpoint attribution). Route summaries add up owned miles per level.
 - **Times:** shown in the browser's time zone, with elapsed time since departure. Departures in the past are rejected.
 
@@ -209,7 +210,8 @@ Response `200`:
 | `routes` | Best first. `recommended` is `0`, or `null` when every route is blocked. |
 | `earliest_clear_departure` | When every route is blocked: `{hours_later, departure, route}` for the first later departure (1–48 h) with a route clear of No Travel; otherwise `null` |
 | `level` | 0 Low … 4 No Travel; `null` is Unknown |
-| `duration_s` | Driving time |
+| `duration_s` | Driving time, including weather slowdowns |
+| `weather_delay_s` | Driving time added by weather slowdowns |
 | `trip_s` | Departure to arrival, including HOS stops |
 | `offset_s` | Wall-clock seconds after departure |
 | `stops` | Empty unless `hos` is true |

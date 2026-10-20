@@ -55,6 +55,7 @@ export type Route = {
   segments: Segment[];
   trip_s: number; // departure to arrival, including stops
   stops: Stop[]; // empty unless HOS breaks were asked for
+  weather_delay_s: number; // driving time added by bad-weather slowdowns (already in duration_s and the ETAs)
 };
 
 export type Plan = {

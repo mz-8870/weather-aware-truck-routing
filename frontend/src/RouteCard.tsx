@@ -19,6 +19,8 @@ const stopCount = (stops: Route["stops"]) =>
     .map(([kind, n]) => `${n} ${kind}${n === 1 ? "" : "s"}`)
     .join(" · ");
 
+const weatherDelay = (s: number) => `+${s < 3600 ? `${Math.round(s / 60)} min` : duration(s)} weather`;
+
 export function RouteCard({ route, recommended, why, selected, onSelect }: Props) {
   const f = useUnits();
   const id = useId();
@@ -85,6 +87,7 @@ export function RouteCard({ route, recommended, why, selected, onSelect }: Props
         </span>
       </div>
       {route.stops.length > 0 && <span className={styles.distance}>{stopCount(route.stops)}</span>}
+      {route.weather_delay_s >= 60 && <span className={styles.distance}>{weatherDelay(route.weather_delay_s)}</span>}
       <div className={styles.bar} aria-hidden>
         {bar.map((b) => (
           <span key={String(b.level)} data-risk={riskLevel(b.level).key} style={{ flexGrow: b.mi / total }} />

@@ -74,6 +74,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 40 | Map overlays hiding routes (fit padding) | ✅ merged (#45), verified live |
 | 41 | Phone chip scrollbar | ✅ merged (#44), verified live |
 | 42 | Basemap boundary-filter warning | ✅ merged (#43), verified live |
+| 49 | Earliest clear departure | ✅ merged (#55) |
+| 52 | Weather-adjusted speed | ✅ this PR |
 | 49 | Earliest clear departure | ✅ this PR |
 | 50, 52, 53 | Map route labels, weather-adjusted speed, casing pass | open, in that order |
 
@@ -115,6 +117,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
   - `RouteMap` re-fits when `sheet` changes.
   - E2E: pins must not sit under any overlay (northeast fixture route), and a 768 px tablet journey must frame the trip.
 - **Earliest clear departure (#49):** `/api/plan` adds `earliest_clear_departure` (`{hours_later, departure, route}` or `null`). Only when every route is blocked, `views._classify` re-runs for departures +1…+48 h (`CLEAR_SEARCH_H`) on the same checkpoints, and `ranking.earliest_clear` stops at the first hour `rank` recommends; the weather cache answers it, so no routing calls and no repeat Open-Meteo fetches. The traffic-dependent TomTom drive time is not recomputed for the later hour. UI: the all-blocked banner body names the time and route, and a "Leave N h Later" button re-plans with that departure (the form's Departure updates too).
+- **Weather speed (#52):** `views.SPEED_FACTOR` by level; `checkpoints.slowed(cps, factors)` stretches each span by the factors of the two checkpoints owning its halves. `_plan_json` classifies once at TomTom's ETAs (pass 1), slows the drive offsets, swaps `route.duration_s` for the slowed time (ranking uses it), applies HOS, then classifies again at the slowed ETAs; when nothing slowed, pass 2 reuses pass 1's readings. `hos_stops(..., keys=(miles, seconds))` places stops on the slowed timing. Response: route `weather_delay_s`; cards show "+42 min weather"; a results note lists the factors. The #49 departure search shifts the plan's slowed ETAs as they are (no re-slowing per hour).
 - **Phone chips (#41):** `scrollbar-width: none` plus `::-webkit-scrollbar` on the chip row; it still scrolls.
 - **E2E infra:** `reuseExistingServer: false`. A concurrent run's preview on :4173 made tests silently run against another build; a clash now fails loudly. Run e2e one at a time.
 - **Deploy (#34):**

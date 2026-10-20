@@ -61,6 +61,7 @@ const route = (name: string, over = {}) => ({
   segments: [],
   trip_s: 54900,
   stops: [],
+  weather_delay_s: 0,
   ...over,
 });
 
@@ -155,6 +156,14 @@ test("planning a trip shows three ranked route cards with the recommendation", a
     hos: false,
   });
   expect(screen.getByText("ETAs assume non-stop driving.")).toBeTruthy();
+  expect(screen.getByText("Bad weather slows driving: 90% of normal speed at Moderate, 75% at High, 60% at Severe.")).toBeTruthy();
+});
+
+test("a route slowed by bad weather shows the added time", async () => {
+  renderApp(Response.json({ ...PLAN, routes: [route("Route A", { weather_delay_s: 2520 }), route("Route B", { weather_delay_s: 4200 }), route("Route C")] }));
+  expect((await screen.findByRole("article", { name: "Route A" })).textContent).toContain("+42 min weather");
+  expect(card("Route B").textContent).toContain("+1h 10m weather");
+  expect(card("Route C").textContent).not.toContain("weather");
 });
 
 test("a route with no severe, high or unknown miles says so once instead of three zeros", async () => {
