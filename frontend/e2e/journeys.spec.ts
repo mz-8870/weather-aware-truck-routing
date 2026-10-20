@@ -1,7 +1,7 @@
 // What users actually do, in a real browser against the production build; /api answers come from fixtures.
 import { expect, fillTrip, heatmap, PLAN, route, test } from "./fixtures";
 
-const results = (n = 3) => new RegExp(`^${n} routes? · Route A recommended$`);
+const results = (n = 3) => new RegExp(`^${n} Routes? · Route A Recommended$`);
 
 test.describe("planning a trip", () => {
   test("pick both places from autosuggest with the keyboard and plan", async ({ page, api }) => {
@@ -17,8 +17,8 @@ test.describe("planning a trip", () => {
     await destination.fill("Salt");
     await page.getByRole("option", { name: /Salt Lake City, UT/ }).click();
     await page.getByLabel("Departure").fill("2030-01-15T08:00");
-    await page.getByLabel("Cargo weight (lb)").fill("32000");
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByLabel("Cargo Weight (lb)").fill("32000");
+    await page.getByRole("button", { name: "Plan Routes" }).click();
 
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(3);
@@ -38,7 +38,7 @@ test.describe("planning a trip", () => {
   test("an example trip plans in one click and collapses the form to a summary", async ({ page, api, isMobile }) => {
     await page.goto("/");
     if (!isMobile) await expect(page.getByText("Your routes will appear here")).toBeVisible(); // phones: under the sheet, hidden
-    await page.getByRole("button", { name: "Amarillo → Oklahoma City · high wind" }).click();
+    await page.getByRole("button", { name: "Amarillo → Oklahoma City · High Wind" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     await expect(page.getByText("Amarillo, TX → Oklahoma City, OK")).toBeVisible();
     await expect(page.getByLabel("Origin")).toHaveCount(0);
@@ -49,12 +49,12 @@ test.describe("planning a trip", () => {
   test("Edit reopens the filled-in form and a re-plan sends the change", async ({ page, api }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await expect(page.getByLabel("Origin")).toHaveValue("Denver, CO");
     await page.getByRole("radio", { name: "10 mi" }).click();
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect.poll(() => api.sent.plan.length).toBe(2);
     expect(api.sent.plan[1].interval_mi).toBe(10);
   });
@@ -62,10 +62,10 @@ test.describe("planning a trip", () => {
   test("a gross weight over 80,000 lb warns but still plans", async ({ page, api }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("radio", { name: "Gross (truck + cargo)" }).click();
-    await page.getByLabel("Gross weight (lb)").fill("85000");
+    await page.getByRole("radio", { name: "Gross (Truck + Cargo)" }).click();
+    await page.getByLabel("Gross Weight (lb)").fill("85000");
     await expect(page.getByText("Over 80,000 lb gross")).toBeVisible();
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     expect(api.sent.plan[0]).toMatchObject({ weight_lb: 85000, weight_mode: "gross" });
   });
@@ -74,10 +74,10 @@ test.describe("planning a trip", () => {
     api.plan({ status: 400, json: { departure: ["Departure must be in the future."] } }, { json: PLAN });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText("Departure must be in the future.")).toBeVisible();
     await expect(page.getByLabel("Departure")).toHaveAttribute("aria-invalid", "true");
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
   });
 });
@@ -86,15 +86,15 @@ test.describe("reading the results", () => {
   test("open a route to see its checkpoints, then go back to all routes", async ({ page }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("article", { name: "Route A" })).toContainText("Recommended");
     await expect(page.getByRole("article", { name: "Route B" })).toContainText("High");
 
     await page.getByRole("button", { name: "Route B" }).click();
-    await expect(page.getByText("5 checkpoints")).toBeVisible();
+    await expect(page.getByText("5 Checkpoints")).toBeVisible();
     await expect(page.getByText("#3 · mi 260")).toBeVisible();
     await expect(page.getByText("Wind 38 mph")).toBeVisible();
-    await page.getByRole("button", { name: "All routes" }).click();
+    await page.getByRole("button", { name: "All Routes" }).click();
     await expect(page.getByRole("article")).toHaveCount(3);
   });
 
@@ -103,7 +103,7 @@ test.describe("reading the results", () => {
     api.plan({ json: { ...PLAN, routes: [PLAN.routes[0], PLAN.routes[1], blocked] } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText("Route C crosses a No Travel zone")).toBeVisible();
     await expect(page.getByRole("article", { name: "Route C" })).toContainText("No Travel"); // ranking itself: backend tests
   });
@@ -113,8 +113,8 @@ test.describe("reading the results", () => {
     api.plan({ json: { ...PLAN, routes: ["Route A", "Route B", "Route C"].map(blocked), recommended: null, why: null } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
-    await expect(page.getByRole("heading", { name: "No safe route in this window" })).toBeVisible();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
+    await expect(page.getByRole("heading", { name: "No Safe Route in This Window" })).toBeVisible();
     await expect(page.getByText("Recommended", { exact: true })).toHaveCount(0);
   });
 
@@ -127,13 +127,13 @@ test.describe("reading the results", () => {
     );
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText(/to avoid No Travel on Route B\.$/)).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("earliest-clear.png") });
     await page.getByRole("button", { name: "Leave 8 h Later" }).click();
     await expect.poll(() => api.sent.plan.length).toBe(2);
     expect(api.sent.plan[1]).toEqual({ ...api.sent.plan[0], departure: later });
-    await expect(page.getByRole("heading", { name: /Route A recommended/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Route A Recommended/ })).toBeVisible();
   });
 
   test("an added detour is explained", async ({ page, api }) => {
@@ -141,7 +141,7 @@ test.describe("reading the results", () => {
     api.plan({ json: { ...PLAN, routes: [PLAN.routes[0], detour, PLAN.routes[2]], routes_found: 2 } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText("Only 2 routes found — added a detour")).toBeVisible();
     await expect(page.getByText("via Laramie, WY · added detour")).toBeVisible();
   });
@@ -153,8 +153,8 @@ test.describe("reading the results", () => {
     api.plan({ json: { ...PLAN, routes: [route("Route A", { minutes: 560, stops, tripS: 35400 }), PLAN.routes[1], PLAN.routes[2]] } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("radio", { name: "US hours of service" }).click();
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("radio", { name: "US Hours of Service" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText(/· HOS breaks$/)).toBeVisible();
     await expect(page.getByRole("article", { name: "Route A" })).toContainText("1 break");
     expect(api.sent.plan[0].hos).toBe(true);
@@ -194,13 +194,13 @@ test.describe("the forecast map", () => {
     api.heatmap({ json: heatmap(ne("Route A", 0).checkpoints.map((c) => [c.lon, c.lat])) });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
-    if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
+    if (!isMobile) await expect(page.getByRole("heading", { name: "Risk Along Corridor" })).toBeVisible();
     // The fit animates; wait until it settles clear. On desktop the sidebar sits beside the map, not over it.
     await expect.poll(() => markersHiddenBy(page), { timeout: 5000 }).toEqual([]);
     await expect.poll(() => markersHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     if (isMobile) {
-      await page.getByRole("button", { name: "Trip panel" }).click(); // collapse: the map re-fits into the larger space
+      await page.getByRole("button", { name: "Trip Panel" }).click(); // collapse: the map re-fits into the larger space
       await expect.poll(() => markersHiddenBy(page), { timeout: 5000 }).toEqual([]);
       await expect.poll(() => markersHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     }
@@ -211,12 +211,12 @@ test.describe("the forecast map", () => {
     api.plan({ json: { ...PLAN, routes: [ne("Route A", 0), ne("Route B", 0.6), ne("Route C", -0.6)] } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     const tag = (name: string) => page.locator(".maplibregl-marker", { hasText: new RegExp(`^${name}$`) });
     for (const name of ["Route A", "Route B", "Route C"]) await expect(tag(name)).toBeVisible();
     const fill = (name: string) => tag(name).locator("div").evaluate((e) => getComputedStyle(e).backgroundColor);
     expect(await fill("Route A")).not.toBe(await fill("Route B")); // Route A is selected first
-    if (isMobile) await page.getByRole("button", { name: "Trip panel" }).click(); // the sheet covers the cards' map area otherwise
+    if (isMobile) await page.getByRole("button", { name: "Trip Panel" }).click(); // the sheet covers the cards' map area otherwise
     await page.getByRole("button", { name: "Route B" }).click({ force: isMobile });
     const filled = async () => [await fill("Route A"), await fill("Route B"), await fill("Route C")];
     await expect.poll(async () => { const [a, b, c] = await filled(); return a === c && b !== c; }).toBe(true); // now Route B
@@ -235,7 +235,7 @@ test.describe("the forecast map", () => {
     api.plan({ json: { ...PLAN, routes: [ne("Route A", 0), ne("Route B", 0.6), ne("Route C", -0.6)] } });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     // The full desktop padding is wider than this map; without scaling it down MapLibre skips the fit entirely and
     // the map stays on the continental view, where this trip spans only ~20% of the width.
@@ -253,14 +253,14 @@ test.describe("the forecast map", () => {
   test("switch heatmap layers and scrub 0–48 h without new requests", async ({ page, api, isMobile }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect.poll(() => api.sent.heatmap.length).toBe(1);
     expect(api.sent.heatmap[0].points).toHaveLength(15); // every route's checkpoints
-    if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
+    if (!isMobile) await expect(page.getByRole("heading", { name: "Risk Along Corridor" })).toBeVisible();
 
     await page.getByRole("radio", { name: "Wind" }).click();
-    if (!isMobile) await expect(page.getByRole("heading", { name: "Wind along corridor" })).toBeVisible();
-    const slider = page.getByRole("slider", { name: "Forecast hour" });
+    if (!isMobile) await expect(page.getByRole("heading", { name: "Wind Along Corridor" })).toBeVisible();
+    const slider = page.getByRole("slider", { name: "Forecast Hour" });
     await slider.focus();
     await slider.press("End");
     await expect(slider).toHaveAttribute("aria-valuetext", /^\+48 h, /);
@@ -274,8 +274,8 @@ test.describe("the forecast map", () => {
   test("Play advances the forecast hour and Pause stops it", async ({ page }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
-    const slider = page.getByRole("slider", { name: "Forecast hour" });
+    await page.getByRole("button", { name: "Plan Routes" }).click();
+    const slider = page.getByRole("slider", { name: "Forecast Hour" });
     await page.getByRole("button", { name: "Play" }).click();
     await expect(slider).toHaveAttribute("aria-valuetext", /^\+[2-9]\d* h, /, { timeout: 5000 });
     await page.getByRole("button", { name: "Pause" }).click();
@@ -292,11 +292,11 @@ test.describe("when things go wrong", () => {
     api.plan({ status: 422, json: { detail: "No truck route found for this trip.", code: "no_route" } }, { json: PLAN });
     await page.goto("/");
     await fillTrip(page, { destination: "Honolulu, HI" });
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: "No drivable route found" })).toBeVisible();
-    await page.getByRole("button", { name: "Edit trip" }).click();
+    await page.getByRole("button", { name: "Edit Trip" }).click();
     await page.getByLabel("Destination").fill("Salt Lake City, UT");
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     expect(api.sent.plan.map((b) => b.destination)).toEqual(["Honolulu, HI", "Salt Lake City, UT"]);
   });
@@ -305,9 +305,9 @@ test.describe("when things go wrong", () => {
     api.plan({ status: 502, json: { detail: "Routing service unavailable. Try again." } }, { json: PLAN });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: "Couldn't reach the routing service" })).toBeVisible();
-    await page.getByRole("button", { name: "Try again" }).click();
+    await page.getByRole("button", { name: "Try Again" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible();
     expect(api.sent.plan).toHaveLength(2);
     expect(api.sent.plan[1]).toEqual(api.sent.plan[0]);
@@ -317,7 +317,7 @@ test.describe("when things go wrong", () => {
     api.heatmap({ status: 502, json: { detail: "Weather layer didn't load." } }, { json: heatmap() });
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByText("Weather layer didn't load")).toBeVisible();
     await expect(page.getByRole("article")).toHaveCount(3);
     await page.getByRole("button", { name: "Retry" }).click();
@@ -331,7 +331,7 @@ test.describe("preferences", () => {
   test("metric units convert the results, Undo restores, and the choice survives a reload", async ({ page, isMobile }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     const card = page.getByRole("article", { name: "Route A" });
     await expect(card).toContainText("520 mi");
     if (isMobile) await page.getByRole("button", { name: "Settings" }).click();
@@ -344,18 +344,18 @@ test.describe("preferences", () => {
     if (isMobile) await page.getByRole("button", { name: "Settings" }).click();
     await page.getByRole("radio", { name: "Metric" }).click();
     await page.reload();
-    await expect(page.getByLabel("Cargo weight (kg)")).toBeVisible();
+    await expect(page.getByLabel("Cargo Weight (kg)")).toBeVisible();
   });
 
   test("dark theme applies to the page and is remembered", async ({ page, isMobile }) => {
     await page.goto("/");
     if (isMobile) await page.getByRole("button", { name: "Settings" }).click();
-    await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    await page.getByRole("button", { name: "Switch to Dark Theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     if (isMobile) await page.getByRole("button", { name: "Settings" }).click();
-    await page.getByRole("button", { name: "Switch to light theme" }).click();
+    await page.getByRole("button", { name: "Switch to Light Theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   });
 });
@@ -366,7 +366,7 @@ test.describe("on a phone", () => {
   test("the heatmap layer chips scroll sideways without showing a scrollbar", async ({ page }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     const row = await page.getByRole("radiogroup", { name: "Heatmap" }).evaluate((el) => {
       let s = el as HTMLElement | null;
       while (s && getComputedStyle(s).overflowX !== "auto") s = s.parentElement;
@@ -379,9 +379,9 @@ test.describe("on a phone", () => {
   test("the trip sheet collapses to show the map and expands again", async ({ page }) => {
     await page.goto("/");
     await fillTrip(page);
-    await page.getByRole("button", { name: "Plan routes" }).click();
+    await page.getByRole("button", { name: "Plan Routes" }).click();
     await expect(page.getByRole("heading", { name: results() })).toBeVisible(); // measure the sheet once it has content
-    const handle = page.getByRole("button", { name: "Trip panel" });
+    const handle = page.getByRole("button", { name: "Trip Panel" });
     const sheet = page.getByRole("complementary");
     const open = (await sheet.boundingBox())!.height;
     await handle.click();

@@ -23,11 +23,11 @@ const base: Checkpoint = {
 
 test("shows ETA, readings, level and the rule that set it", () => {
   render(<CheckpointDetails checkpoint={base} number={14} />);
-  expect(screen.getByText("Checkpoint 14 · mile 350")).toBeTruthy();
+  expect(screen.getByText("Checkpoint 14 · Mile 350")).toBeTruthy();
   expect(screen.getByText(/\+5h 20m$/)).toBeTruthy();
   expect(screen.getByText("No Travel")).toBeTruthy();
   expect(screen.getByText("47 mph")).toBeTruthy();
-  expect(screen.getByText("Gusts (info)")).toBeTruthy();
+  expect(screen.getByText("Gusts (Info)")).toBeTruthy();
   expect(screen.getByText("61 mph")).toBeTruthy();
   expect(screen.getByText("0.04 in/hr")).toBeTruthy();
   expect(screen.getByText("0.00 in/hr")).toBeTruthy();

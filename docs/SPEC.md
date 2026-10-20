@@ -16,7 +16,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 
 ## Inputs
 - Origin, destination (autosuggest), departure (browser TZ; past rejected), weight, sampling interval toggle 10/25/50 mi (default 25).
-- Weight mode: **Cargo only** | **Gross (truck + cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to TomTom only if set).
+- Weight mode: **Cargo Only** | **Gross (Truck + Cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to TomTom only if set).
   - TomTom gets gross (`vehicleWeight`, kg). Risk load rules use cargo (gross mode: cargo = max(0, gross − empty)).
   - Validation: weight ≥ 0; warn > 80,000 lb gross.
 

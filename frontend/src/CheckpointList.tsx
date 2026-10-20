@@ -16,7 +16,7 @@ export function CheckpointList({ checkpoints, intervalMi }: { checkpoints: Check
   return (
     <section className={styles.list} aria-label="Checkpoints">
       <div className={styles.head}>
-        <span className={styles.count}>{checkpoints.length} checkpoints</span>
+        <span className={styles.count}>{checkpoints.length} Checkpoints</span>
         <span className={styles.every}>every {f.interval(intervalMi)}</span>
       </div>
       <ol className={styles.rows}>

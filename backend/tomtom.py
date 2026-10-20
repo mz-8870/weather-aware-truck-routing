@@ -69,7 +69,7 @@ def _kind(result: dict) -> str:
         return "City" if result.get("entityType") == "Municipality" else "Region"
     if result["type"] == "POI":
         names = [n["name"] for c in result.get("poi", {}).get("classifications", []) for n in c.get("names", [])]
-        return names[0].capitalize() if names else "Place"
+        return names[0].title() if names else "Place"  # a badge label: Title Case (rule 16)
     return {"Street": "Street", "Cross Street": "Intersection"}.get(result["type"], "Address")
 
 

@@ -20,7 +20,7 @@ const LAYERS = [
   { value: "snow", label: "Snow", icon: Snowflake },
   { value: "off", label: "Off", icon: EyeOff },
 ] as const;
-const SCALE = ["Low", "Mod", "High", "Sev", "No travel"]; // Pencil legend labels
+const SCALE = ["Low", "Mod", "High", "Sev", "No Travel"]; // Pencil legend labels
 
 // Same bands as backend/risk.py: Moderate, High, Severe lower bounds, then the No Travel bound.
 const BANDS: Record<Exclude<Variable, "risk">, { bounds: number[]; noTravel: string; format: (f: Formatter, v: number) => string }> = {
@@ -88,7 +88,7 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
 
       {layer !== "off" && status === "success" && (
         <section className={styles.legend} aria-label="Legend">
-          <h2 className={styles.legendTitle}>{capitalize(layer)} along corridor</h2>
+          <h2 className={styles.legendTitle}>{capitalize(layer)} Along Corridor</h2>
           <div className={styles.scale} role="img" aria-label="Low, Moderate, High, Severe, No Travel">
             {[0, 1, 2, 3, 4].map((l) => (
               <span key={l} style={{ background: `var(--risk-${riskLevel(l).key})` }} />
@@ -113,7 +113,7 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
           <ul className={styles.lines}>
             <li className={styles.band}>
               <span className={`${styles.line} ${styles.selectedLine}`} aria-hidden />
-              Selected route
+              Selected Route
             </li>
             <li className={styles.band}>
               <span className={styles.line} aria-hidden />
@@ -138,12 +138,12 @@ export function ForecastControls({ layer, onLayer, hour, onHour, departure, stat
         </Button>
         <div className={styles.scrub}>
           <div className={styles.readoutRow}>
-            <span className={styles.label}>Forecast hour</span>
+            <span className={styles.label}>Forecast Hour</span>
             <span className={styles.readout}>
               +{hour} h · {dayTime(at)}
             </span>
           </div>
-          <Slider label="Forecast hour" value={hour} min={0} max={MAX_HOUR} valueText={`+${hour} h, ${dayTime(at)}`} onChange={onHour} />
+          <Slider label="Forecast Hour" value={hour} min={0} max={MAX_HOUR} valueText={`+${hour} h, ${dayTime(at)}`} onChange={onHour} />
           <div className={styles.ticks} aria-hidden>
             {TICKS.map((t) => (
               <span key={t}>{t} h</span>

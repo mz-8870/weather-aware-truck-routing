@@ -17,13 +17,13 @@ test("plan a trip → three ranked cards → scrub the forecast without refetchi
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Denver → Salt Lake City · winter storm" }).click();
+  await page.getByRole("button", { name: "Denver → Salt Lake City · Winter Storm" }).click();
   await expect(page.getByRole("article")).toHaveCount(3);
-  await expect(page.getByRole("heading", { name: "3 routes · Route A recommended" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "3 Routes · Route A Recommended" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Risk" })).toBeVisible();
   await expect.poll(() => api.sent.heatmap.length).toBe(1);
 
-  const slider = page.getByRole("slider", { name: "Forecast hour" });
+  const slider = page.getByRole("slider", { name: "Forecast Hour" });
   await slider.focus();
   for (let i = 0; i < 12; i++) await slider.press("ArrowRight");
   await expect(slider).toHaveAttribute("aria-valuetext", /^\+12 h, /);

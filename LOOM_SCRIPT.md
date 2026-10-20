@@ -21,10 +21,10 @@ The script is mapped to the brief's grading: **40% logic, 40% UI/map/heatmap smo
    - "TomTom routes on gross weight. The risk rules use cargo." Mention the warning over 80,000 lb.
 5. **Recommendation.** Return to all routes and read the "why" line.
    - "Ranking is No Travel last, then severe miles, then high miles, then average risk, then time. The UI names the deciding factor."
-6. **Hours of service.** Click Edit, set **Rest breaks: US hours of service** and re-plan.
+6. **Hours of service.** Click Edit, set **Rest Breaks: US Hours of Service** and re-plan.
    - "Arrival moves by the breaks, and the weather is re-checked at the new hours."
    - Show the stops list (break and rest, milepost, nearest town, time) and the markers on the map.
-7. **Errors.** Plan Denver → Honolulu to show "No drivable route found". Mention the outage state with Try again, and that Retry re-sends only the failed request.
+7. **Errors.** Plan Denver → Honolulu to show "No drivable route found". Mention the outage state with Try Again, and that Retry re-sends only the failed request.
 
 ## 3:30 – 6:30 · UI, map and heatmap smoothness (40%)
 1. **Heatmap.** Switch Risk → Wind → Snow; the legend and the band limits follow.

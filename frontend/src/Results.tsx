@@ -57,7 +57,7 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
       <section className={styles.results}>
         <Button variant="ghost" className={styles.back} onClick={onBack}>
           <ArrowLeft aria-hidden className={styles.backIcon} />
-          All routes
+          All Routes
         </Button>
         <RouteCard route={route} recommended={selected === plan.recommended} why={plan.why} selected />
         {route.stops.length > 0 && <StopList stops={route.stops} />}
@@ -70,7 +70,7 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
     <section className={styles.results}>
       <div className={styles.head}>
         <h2 className={styles.title}>
-          {allBlocked ? "No safe route in this window" : `${plural(plan.routes.length)} · ${plan.routes[0].name} recommended`}
+          {allBlocked ? "No Safe Route in This Window" : `${plan.routes.length} Route${plan.routes.length === 1 ? "" : "s"} · ${plan.routes[0].name} Recommended`}
         </h2>
         <p className={styles.note}>
           {allBlocked

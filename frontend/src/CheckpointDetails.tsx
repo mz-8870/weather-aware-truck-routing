@@ -28,7 +28,7 @@ export function CheckpointDetails({ checkpoint: c, number }: { checkpoint: Check
   // Same precision the classifier saw, so a reading never looks like it crossed a threshold it didn't.
   const rows: [string, string][] = [
     ["Wind", f.wind(c.wind_mph)],
-    ["Gusts (info)", f.wind(c.gust_mph)],
+    ["Gusts (Info)", f.wind(c.gust_mph)],
     ["Rain", f.rain(c.rain_in_hr)],
     ["Snow", f.snow(c.snow_in_hr)],
   ];
@@ -37,7 +37,7 @@ export function CheckpointDetails({ checkpoint: c, number }: { checkpoint: Check
       <div className={styles.head}>
         <div className={styles.titles}>
           <span className={styles.title}>
-            Checkpoint {number} · {f.units === "metric" ? "km" : "mile"} {f.milepost(c.mile)}
+            Checkpoint {number} · {f.units === "metric" ? "km" : "Mile"} {f.milepost(c.mile)}
           </span>
           <span className={styles.eta}>
             ETA {dayTime(c.eta)} · {elapsed(c.offset_s)}
