@@ -17,7 +17,8 @@ export function mapStyle(mode: Mode): StyleSpecification {
         type: "line",
         source: "omt",
         "source-layer": "boundary",
-        filter: ["<=", ["get", "admin_level"], 4],
+        // Some boundary features have no admin_level; coalesce so they are skipped instead of warning.
+        filter: ["<=", ["coalesce", ["get", "admin_level"], 99], 4],
         paint: { "line-color": c("map-border"), "line-width": 1, "line-dasharray": [3, 2] },
       },
       {
