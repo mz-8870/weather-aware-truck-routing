@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
 import { Popover } from "./components/Popover";
+import { fitPadding } from "./mapFit";
 import { mapStyle } from "./mapStyle";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
@@ -32,6 +33,7 @@ type Props = {
   onSelect: (index: number) => void;
   heat?: { cells: [number, number][]; spacingMi: number; levels: (number | null)[] }; // one forecast hour of one variable
   trucks?: [number, number][]; // [lon, lat] per route at the slider hour
+  sheet: "open" | "peek"; // phone trip sheet: how much of the map it covers
   mode: Mode; // a prop, not read from the DOM: a remounted map runs its effects before App's theme effect
 };
 
@@ -75,7 +77,7 @@ function whenLoaded(m: MapLibreMap, fn: () => void) {
   else m.once("load", fn);
 }
 
-export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Props) {
+export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const select = useRef(onSelect);
@@ -155,11 +157,11 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode }: Pro
     if (!m || !coords.length) return;
     whenLoaded(m, () => {
       const bounds = coords.reduce((b, p) => b.extend(p), new LngLatBounds(coords[0], coords[0]));
-      // On phones the open trip sheet covers the lower ~62% of the map; fit the routes above it.
-      const sheet = window.matchMedia(PHONE).matches ? m.getContainer().clientHeight * 0.62 : 0;
-      m.fitBounds(bounds, { padding: { top: 64, right: 64, bottom: 64 + sheet, left: 64 }, duration: 600 });
+      // Frame the routes where no control covers them; on phones, re-fit as the trip sheet opens or collapses.
+      const padding = fitPadding({ phone: window.matchMedia(PHONE).matches, sheet, viewportHeight: window.innerHeight });
+      m.fitBounds(bounds, { padding, duration: 600 });
     });
-  }, [routes]);
+  }, [routes, sheet]);
 
   useEffect(() => {
     const m = map.current;

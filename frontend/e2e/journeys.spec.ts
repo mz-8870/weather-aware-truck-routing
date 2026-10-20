@@ -146,6 +146,41 @@ test.describe("reading the results", () => {
 });
 
 test.describe("the forecast map", () => {
+  // The pins mark both ends of the trip; nothing the app draws over the map may hide them.
+  async function pinsHiddenBy(page: import("@playwright/test").Page) {
+    const pins = await page.locator(".maplibregl-marker").evaluateAll((els) =>
+      els.filter((e) => e.querySelector("svg.lucide-circle-dot, svg.lucide-flag")).map((e) => e.getBoundingClientRect().toJSON()),
+    );
+    const covers = await page.evaluate(() =>
+      [...document.querySelectorAll("main > *:not(:first-child), aside")]
+        .filter((e) => getComputedStyle(e).display !== "none")
+        .map((e) => ({ name: e.className, ...e.getBoundingClientRect().toJSON() })),
+    );
+    type Box = { x: number; y: number; width: number; height: number };
+    const overlap = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    expect(pins).toHaveLength(2);
+    return pins.flatMap((p) => covers.filter((c) => overlap(p, c)).map((c) => c.name));
+  }
+
+  test("after planning, both ends of the trip are in view, not under the controls", async ({ page, api, isMobile }) => {
+    // Northeast like Denver → Minneapolis: the destination lands in the top-right corner, where the legend sits.
+    const ne = (name: string, offsetLat: number) => route(name, { offsetLat, step: [1.35, 3] });
+    api.plan({ json: { ...PLAN, routes: [ne("Route A", 0), ne("Route B", 0.6), ne("Route C", -0.6)] } });
+    api.heatmap({ json: heatmap(ne("Route A", 0).checkpoints.map((c) => [c.lon, c.lat])) });
+    await page.goto("/");
+    await fillTrip(page);
+    await page.getByRole("button", { name: "Plan routes" }).click();
+    if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
+    await page.waitForTimeout(1000); // the fit animates
+    // On desktop the sidebar sits beside the map, so only phone layouts can cover pins with it.
+    expect(await pinsHiddenBy(page)).toEqual([]);
+    if (isMobile) {
+      await page.getByRole("button", { name: "Trip panel" }).click(); // collapse: the map re-fits into the larger space
+      await page.waitForTimeout(1000);
+      expect(await pinsHiddenBy(page)).toEqual([]);
+    }
+  });
+
   test("switch heatmap layers and scrub 0–48 h without new requests", async ({ page, api, isMobile }) => {
     await page.goto("/");
     await fillTrip(page);
