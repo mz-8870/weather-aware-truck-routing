@@ -22,6 +22,7 @@ Severity: 🔴 critical (breaks trust, data, or a user rule) · 🟠 repeated (h
 14. Check map/render work in a **production build** (`vite build` + `vite preview`), not only the dev server — dev-only config (e.g. `optimizeDeps.exclude`) can hide production failures.
 13. Judge a check by its **exit code**, not a grepped summary line: Vitest can print "30 passed" and still exit 1 on an unhandled error.
 11. Scripted file edits on Windows: run Python with `PYTHONUTF8=1` (or `encoding="utf-8"`) — the default cp1252 silently fails to match `—`, `·`, `→`.
+16. Casing: **Title Case** for labels (buttons, field labels, headings, card/section titles, tabs, chips, legend titles, badges — "Plan Route", "No Travel"); **sentence case** for sentences (helper text, banners, errors, toasts, tooltips, empty states, the recommendation "why"). Small words (a, an, the, and, or, of, to, in, on, at, by, for, per) stay lowercase mid-label; units and acronyms keep their form (mph, ETA, HOS). Applies to code and Pencil (#53).
 
 ## Log
 
