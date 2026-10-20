@@ -38,7 +38,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 1. **Needs the user:** make the repo public when they say so (`gh repo edit --visibility public --accept-visibility-change-consequences`).
 2. **Deploys:** every merge to `main` deploys to production; every PR gets a Vercel preview. Manual: `npx vercel deploy --prod --yes` from the worktree root (linked via `.vercel/`).
 3. **Production was tested by hand** (Playwright MCP, 2026-10-20) and its 4 findings were fixed (#39–#42), then re-verified live.
-4. **Ideas if the user wants more** (FUTURE_FEATURES.md, by value): earliest clear departure when every route is blocked; NWS severe-weather alerts on the corridor; HOS stops at real truck stops; a shared Redis weather cache (Open-Meteo quota under real load).
+4. **Ideas if the user wants more** (FUTURE_FEATURES.md, by value): NWS severe-weather alerts on the corridor; HOS stops at real truck stops; a shared Redis weather cache (Open-Meteo quota under real load).
 5. **Known small gaps:**
    - Audit leftovers: checkpoint details by keyboard plus an active checkpoint marker on the map, the "Why Low" copy, and dark-mode severe vs high hue distance (1.36:1).
    - On short phones (~667 px) a pin can touch the dock (`shortcut:` in `mapFit.ts`).
@@ -76,7 +76,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 42 | Basemap boundary-filter warning | ✅ merged (#43), verified live |
 | 49 | Earliest clear departure | ✅ merged (#55) |
 | 50 | Route tags on the map + active checkpoint ring | ✅ this PR |
-| 52, 53 | Weather-adjusted speed, casing pass | open, in that order |
+| 52, 53 | Weather-adjusted speed (PR #57), casing pass | in review / open |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -115,7 +115,8 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
   - On maps too small for that padding, it scales opposite sides down to keep a `min(size/2, 160)` px box; MapLibre otherwise refuses to fit.
   - `RouteMap` re-fits when `sheet` changes.
   - E2E: pins must not sit under any overlay (northeast fixture route), and a 768 px tablet journey must frame the trip.
-- **Route tags (#50):** `mapFit.labelPoints(paths)` gives one `[lon, lat]` per route: route i searches the i-th of n slices of the 20–80% window (by distance), so tags never stack where routes run together, and takes the point farthest from the other routes. `RouteMap` draws them as DOM `Marker`s (anchor bottom, 14 px up to clear the ring; `pointer-events: none`; `aria-hidden`, the cards carry the names), styled from Pencil 04 (selected = brand fill). The open checkpoint gets a ring from the `checkpoint-active` circle layer, whose filter follows `popup.index`. E2E: tags must not sit under any overlay (`pinsHiddenBy(page, "tags")`).
+- **Earliest clear departure (#49):** `/api/plan` adds `earliest_clear_departure` (`{hours_later, departure, route}` or `null`). Only when every route is blocked, one `weather.readings` batch covers departures +1…+48 h (`CLEAR_SEARCH_H`) on the same checkpoints, `views._classify` classifies each hour's slice,, and `ranking.earliest_clear` stops at the first hour `rank` recommends; the weather cache answers it, so no routing calls and no repeat Open-Meteo fetches. The traffic-dependent TomTom drive time is not recomputed for the later hour. UI: the all-blocked banner body names the time and route, and a "Leave N h Later" button re-plans with that departure (the form's Departure updates too).
+- **Route tags (#50):** `mapFit.labelPoints(paths)` gives one `[lon, lat]` per route: route i searches the i-th of n slices of the 20–80% window (by distance), so tags never stack where routes run together, and takes the point farthest from the other routes. `RouteMap` draws them as DOM `Marker`s (anchor bottom, 14 px up to clear the ring; `pointer-events: none`; `aria-hidden`, the cards carry the names), styled from Pencil 04 (selected = brand fill). The open checkpoint gets a ring from the `checkpoint-active` circle layer, whose filter follows `popup.index`. E2E: tags must not sit under any overlay (`markersHiddenBy(page, "tags")`).
 - **Phone chips (#41):** `scrollbar-width: none` plus `::-webkit-scrollbar` on the chip row; it still scrolls.
 - **E2E infra:** `reuseExistingServer: false`. A concurrent run's preview on :4173 made tests silently run against another build; a clash now fails loudly. Run e2e one at a time.
 - **Deploy (#34):**

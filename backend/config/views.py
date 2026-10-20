@@ -166,10 +166,48 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         ]
         for rs in stops
     ]
-    etas = [[t["departure"] + timedelta(seconds=c.offset_s) for c in route_cps] for route_cps in cps]
-    # One weather batch for every route's checkpoints.
-    flat = weather.readings(client, [(c.lat, c.lon, eta) for rc, re in zip(cps, etas) for c, eta in zip(rc, re)])
     cargo_lb = t["cargo_lb"]
+    etas = _etas(cps, t["departure"])
+    readings, results, summaries = _classify(routes, cps, weather.readings(client, _points(cps, etas)), cargo_lb)
+    ranked = ranking.rank(summaries)
+    names = {i: f"Route {'ABC'[n]}" for n, i in enumerate(ranked.order)}
+    clear = None
+    if ranked.recommended is None:
+        # Same routes, later departures. One weather batch for the whole search: mostly cache hits, and a place that
+        # failed to fetch is retried once, not once per hour.
+        hours = range(1, CLEAR_SEARCH_H + 1)
+        n = sum(len(rc) for rc in cps)
+        flat = weather.readings(client, [p for h in hours for p in _points(cps, _etas(cps, t["departure"] + timedelta(hours=h)))])
+        later = (_classify(routes, cps, flat[k * n : (k + 1) * n], cargo_lb)[2] for k in range(len(hours)))
+        if found := ranking.earliest_clear(later):
+            h, i = found
+            clear = {"hours_later": h, "departure": (t["departure"] + timedelta(hours=h)).isoformat(), "route": names[i]}
+    return {
+        "cargo_lb": cargo_lb,
+        "recommended": None if ranked.recommended is None else 0,  # routes are returned best first
+        "why": ranked.why,
+        "earliest_clear_departure": clear,
+        "routes": [
+            _route_json(names[i], routes[i], summaries[i], cps[i], etas[i], readings[i], results[i]) | {"stops": stops_json[i]}
+            for n, i in enumerate(ranked.order)
+        ],
+    }
+
+
+CLEAR_SEARCH_H = 48  # later departures tried when every route is blocked: the slider's forecast window
+
+
+def _etas(cps, departure) -> list[list]:
+    return [[departure + timedelta(seconds=c.offset_s) for c in route_cps] for route_cps in cps]
+
+
+def _points(cps, etas) -> list[tuple]:
+    """Every route's checkpoints as one weather batch."""
+    return [(c.lat, c.lon, eta) for rc, re in zip(cps, etas) for c, eta in zip(rc, re)]
+
+
+def _classify(routes, cps, flat, cargo_lb):
+    """Readings, risk results and summaries per route, from one departure's batch of readings (`_points` order)."""
     readings, results, start = [], [], 0
     for route_cps in cps:
         rs = flat[start : start + len(route_cps)]
@@ -180,16 +218,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         ranking.summarize([(c.owned_mi, _level(res)) for c, res in zip(rc, rr)], route.duration_s)
         for route, rc, rr in zip(routes, cps, results)
     ]
-    ranked = ranking.rank(summaries)
-    return {
-        "cargo_lb": cargo_lb,
-        "recommended": None if ranked.recommended is None else 0,  # routes are returned best first
-        "why": ranked.why,
-        "routes": [
-            _route_json(f"Route {'ABC'[n]}", routes[i], summaries[i], cps[i], etas[i], readings[i], results[i]) | {"stops": stops_json[i]}
-            for n, i in enumerate(ranked.order)
-        ],
-    }
+    return readings, results, summaries
 
 
 def _route_json(name, route, summary, cps, etas, readings, results) -> dict:

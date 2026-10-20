@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import App from "./App";
+import { dayTime } from "./format";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
 vi.mock("./RouteMap", () => ({
@@ -202,6 +203,39 @@ test("when every route is blocked there is no recommendation", async () => {
   expect(await screen.findByText("No safe route in this window")).toBeTruthy();
   expect(screen.getByText("Every route crosses a No Travel zone for a 35,000 lb load. No route is recommended.")).toBeTruthy();
   expect(screen.queryByText("Recommended")).toBeNull();
+});
+
+test("a blocked trip suggests the earliest clear departure and re-plans with it", async () => {
+  const blocked = (name: string) => route(name, { summary: summary({ notravel_mi: 5 }) });
+  const later = "2030-01-15T16:30:00+00:00"; // keeps the trip's minutes
+  const fetchMock = renderApp(
+    Response.json({
+      ...PLAN,
+      routes: ["Route A", "Route B", "Route C"].map(blocked),
+      recommended: null,
+      why: null,
+      earliest_clear_departure: { hours_later: 8, departure: later, route: "Route B" },
+    }),
+  );
+
+  expect(await screen.findByText(`Leave at ${dayTime(later)} (+8 h) to avoid No Travel on Route B.`)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Leave 8 h Later" }));
+
+  await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(2));
+  const [first, second] = fetchMock.mock.calls.filter(([url]) => url === "/api/plan").map(([, init]) => JSON.parse(String(init!.body)));
+  expect(second).toEqual({ ...first, departure: later });
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  const d = new Date(later);
+  const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  expect((screen.getByLabelText("Departure") as HTMLInputElement).value).toBe(local); // the form shows the new time
+});
+
+test("a blocked trip with no clear departure in the window says so", async () => {
+  const blocked = (name: string) => route(name, { summary: summary({ notravel_mi: 5 }) });
+  renderApp(Response.json({ ...PLAN, routes: ["Route A", "Route B", "Route C"].map(blocked), recommended: null, why: null, earliest_clear_departure: null }));
+
+  expect(await screen.findByText("No departure in the next 48 h avoids No Travel. Try a lighter load.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Later$/ })).toBeNull();
 });
 
 test("a synthesized detour is explained", async () => {

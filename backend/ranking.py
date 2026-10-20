@@ -1,5 +1,6 @@
 """Route summaries and the spec's strict ranking: No Travel last, then severe mi, high mi, avg risk, time."""
 
+from collections.abc import Iterable
 from math import inf
 from typing import NamedTuple
 
@@ -72,3 +73,12 @@ def rank(summaries: list[Summary]) -> Ranking:
         return Ranking(order, None, None)
     why = _why(best, summaries[order[1]]) if len(order) > 1 else "The only route found."
     return Ranking(order, order[0], why)
+
+
+def earliest_clear(later: Iterable[list[Summary]]) -> tuple[int, int] | None:
+    """`later` yields every route's summaries for departing 1, 2, ... hours later; the first hour with a
+    recommendation and that route's index, or None. Lazy, so the search stops at the first clear hour."""
+    for hours, summaries in enumerate(later, 1):
+        if (best := rank(summaries).recommended) is not None:
+            return hours, best
+    return None

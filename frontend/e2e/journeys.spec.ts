@@ -118,6 +118,24 @@ test.describe("reading the results", () => {
     await expect(page.getByText("Recommended", { exact: true })).toHaveCount(0);
   });
 
+  test("a blocked trip offers the earliest clear departure and re-plans with it", async ({ page, api }) => {
+    const blocked = (name: string) => route(name, { levels: [0, 4, 0, 0, 0], reasons: ["", "wind 58 mph: No Travel"] });
+    const later = "2030-01-15T16:00:00+00:00";
+    api.plan(
+      { json: { ...PLAN, routes: ["Route A", "Route B", "Route C"].map(blocked), recommended: null, why: null, earliest_clear_departure: { hours_later: 8, departure: later, route: "Route B" } } },
+      { json: PLAN },
+    );
+    await page.goto("/");
+    await fillTrip(page);
+    await page.getByRole("button", { name: "Plan routes" }).click();
+    await expect(page.getByText(/to avoid No Travel on Route B\.$/)).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath("earliest-clear.png") });
+    await page.getByRole("button", { name: "Leave 8 h Later" }).click();
+    await expect.poll(() => api.sent.plan.length).toBe(2);
+    expect(api.sent.plan[1]).toEqual({ ...api.sent.plan[0], departure: later });
+    await expect(page.getByRole("heading", { name: /Route A recommended/ })).toBeVisible();
+  });
+
   test("an added detour is explained", async ({ page, api }) => {
     const detour = route("Route B", { offsetLat: 0.6, synthesized: true, detourVia: "Laramie, WY" });
     api.plan({ json: { ...PLAN, routes: [PLAN.routes[0], detour, PLAN.routes[2]], routes_found: 2 } });
