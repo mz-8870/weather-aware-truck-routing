@@ -1,0 +1,77 @@
+.wrap {
+  position: relative;
+}
+
+.popup {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  left: 0;
+  z-index: 20;
+  padding: calc(var(--space-1) * 1.5);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: 0 var(--space-1) var(--space-4) var(--color-shadow);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--space-8) + var(--space-1));
+  padding: 0 calc(var(--space-2) + var(--space-1) / 2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.option[aria-selected="true"],
+.option:hover {
+  background: var(--color-brand-subtle);
+}
+
+.icon {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--color-text-tertiary);
+}
+
+.option[aria-selected="true"] .icon {
+  color: var(--color-brand);
+}
+
+.label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kind {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.hint {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) calc(var(--space-2) + var(--space-1) / 2) var(--space-1);
+  border-top: thin solid var(--color-border);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+/* Arrow-key hints mean nothing on touch. */
+@media (hover: none) {
+  .hint {
+    display: none;
+  }
+}

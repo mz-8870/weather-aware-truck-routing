@@ -1,3 +1,1 @@
-Django==6.1.2
-djangorestframework==3.18.3
-python-dotenv==1.2.4
+-r ../requirements.txt  # runtime deps live at the repo root for Vercel

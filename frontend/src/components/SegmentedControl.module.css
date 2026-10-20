@@ -1,5 +1,26 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  color: var(--color-text-primary);
+  font: 500 var(--text-sm) var(--font-sans);
+}
+
+.hidden {
+  position: absolute;
+  width: var(--space-1);
+  height: var(--space-1);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .root {
   display: inline-flex;
+  align-self: flex-start;
   gap: var(--space-1);
   padding: var(--space-1);
   border-radius: var(--radius-md);
@@ -7,7 +28,10 @@
 }
 
 .item {
-  height: calc(var(--space-8) + var(--space-1));
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--control-height) - 2 * var(--space-1)); /* root padding; the whole control is one control-height */
   padding: 0 var(--space-3);
   border: thin solid transparent;
   border-radius: var(--radius-sm);
@@ -27,4 +51,16 @@
 
 .item:focus-visible {
   outline: medium solid var(--color-focus-ring);
+}
+
+.icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+/* Touch: full 44px targets (the control grows to fit). */
+@media (pointer: coarse) {
+  .item {
+    height: var(--control-height);
+  }
 }

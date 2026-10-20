@@ -91,7 +91,7 @@ def test_load_rule_never_lowers_a_worse_weather_level() -> None:
 
 
 def test_result_reports_the_load_rule_that_fired() -> None:
-    assert classify(47, 0, 0, 32_000).reasons == ("wind 47 mph + cargo 32,000 lb > 30,000",)
+    assert classify(47, 0, 0, 32_000).reasons == ("wind 47 mph + cargo 32,000 lb > 30,000 lb",)
 
 
 def test_result_reports_every_condition_at_the_worst_level() -> None:
@@ -128,4 +128,4 @@ def test_beyond_forecast_flag_passes_through() -> None:
 
 
 def test_fractional_cargo_just_over_threshold_is_reported_exactly() -> None:
-    assert classify(47, 0, 0, 30_000.5).reasons == ("wind 47 mph + cargo 30,000.5 lb > 30,000",)
+    assert classify(47, 0, 0, 30_000.5).reasons == ("wind 47 mph + cargo 30,000.5 lb > 30,000 lb",)

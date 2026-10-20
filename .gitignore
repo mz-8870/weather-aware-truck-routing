@@ -6,3 +6,8 @@ __pycache__/
 .env
 .vercel/
 .DS_Store
+.playwright-mcp/
+test-results/
+playwright-report/
+.env.local
+*.tsbuildinfo

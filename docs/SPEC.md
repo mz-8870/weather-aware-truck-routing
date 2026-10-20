@@ -10,19 +10,20 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - Local path: `C:\dev\weather-aware-truck-routing`.
 
 ## External APIs
-- Routing + geocoding/autosuggest: HERE (truck profile, alternatives). Keys server-side only (`.env`, Vercel env; `.env.example` committed).
-- If HERE returns <3 routes: synthesize an alternative via a via-point detour; UI explains it.
+- Routing + geocoding/autosuggest: TomTom (truck profile, alternatives; free tier, no card — HERE dropped because signup required a card). Keys server-side only (`.env`, Vercel env; `.env.example` committed).
+- If TomTom returns <3 routes: synthesize an alternative via a via-point detour; UI explains it.
 - Weather: Open-Meteo hourly, batched multi-coordinate. Sustained `wind_speed_10m` classifies; gusts shown as info. `snowfall` cm/h → in/h.
 
 ## Inputs
 - Origin, destination (autosuggest), departure (browser TZ; past rejected), weight, sampling interval toggle 10/25/50 mi (default 25).
-- Weight mode: **Cargo only** | **Gross (truck + cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to HERE only if set).
-  - HERE gets gross. Risk load rules use cargo (gross mode: cargo = max(0, gross − empty)).
+- Weight mode: **Cargo Only** | **Gross (Truck + Cargo)**; Advanced: empty-truck weight (default 35,000 lb), optional axle count + weight-per-axle (sent to TomTom only if set).
+  - TomTom gets gross (`vehicleWeight`, kg). Risk load rules use cargo (gross mode: cargo = max(0, gross − empty)).
   - Validation: weight ≥ 0; warn > 80,000 lb gross.
 
 ## Checkpoints & ETA
-- Points every N miles along the polyline; ETA interpolated from HERE per-span durations (traffic-aware for departure time). No HOS breaks (future feature).
+- Points every N miles along the polyline; ETA interpolated from TomTom per-point travel times (traffic-aware for departure time). Optional US hours-of-service breaks (#31, added 2026-10-20): 30 min after 8 h of driving, 10 h rest after 11 h; see README.
 - Each checkpoint owns half the interval on each side (nearest-checkpoint attribution). Drop zero-length/duplicate endpoints.
+- Weather-adjusted speed (#52; factors confirmed by the user, 2026-10-20): Low 1.00, Moderate 0.90, High 0.75, Severe 0.60 of normal speed; No Travel and Unknown 1.00. Each checkpoint's level at TomTom's ETAs slows the half-interval on each side; weather is re-checked once at the slowed ETAs (no iteration). HOS breaks are added after slowing. Ranking travel time = slowed drive time; cards show the added time.
 
 ## Risk classification (canonical imperial, lower-inclusive / upper-exclusive)
 | Level | Wind mph | Rain in/hr | Snow in/hr |
@@ -39,14 +40,14 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - ETA beyond forecast horizon → use last available hour, flag "beyond forecast".
 
 ## Recommendation
-- Any No Travel mile → route ranked last with banner. All 3 blocked → no recommendation (earliest clear departure = future feature).
+- Any No Travel mile → route ranked last with banner. All 3 blocked → no recommendation; instead suggest the earliest clear departure: same routes, departures 1–48 h later in 1 h steps (ETAs shifted, weather from the cache, no re-routing), first hour whose ranking recommends a route. The banner offers a button that re-plans at that time (#49).
 - Otherwise strict lexicographic on (Severe mi, High mi, mile-weighted avg risk 0–4, travel time), miles rounded to 0.1.
 - UI states the deciding factor.
 
 ## API
 - `POST /api/plan` → routes, checkpoints, levels, ETAs, summaries, recommendation.
 - `POST /api/heatmap` → corridor grid (~25 mi spacing, 50 mi buffer around all routes), hours 0–48, one batched Open-Meteo fetch (chunked). Slider is client-side only.
-- `GET /api/geocode?q=` → HERE autosuggest proxy.
+- `GET /api/geocode?q=` → TomTom Search typeahead proxy.
 - Cache: per-instance in-memory LRU keyed by (lat, lon rounded 2dp, hour).
 
 ## UI
@@ -64,7 +65,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - Gate 1: approve design system. Gate 2: approve screens. Then export Pencil variables → `tokens.ts` → CSS vars + deck.gl RGB arrays.
 
 ## Quality
-- pytest: every classification/load edge case, mile attribution, ranking, contract test with mocked HERE/Open-Meteo.
+- pytest: every classification/load edge case, mile attribution, ranking, contract test with mocked TomTom/Open-Meteo.
 - Vitest: unit conversion, token generation. Playwright smoke: plan → 3 cards → slider.
 - GitHub Actions CI on push. Stylelint bans raw colors/px in components.
 

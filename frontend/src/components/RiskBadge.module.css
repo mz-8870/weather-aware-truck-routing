@@ -1,0 +1,28 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--space-1) * 1.5);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: 600 var(--text-xs) var(--font-sans);
+  white-space: nowrap;
+}
+
+.icon {
+  width: calc(var(--space-3) + var(--space-1) / 2);
+  height: calc(var(--space-3) + var(--space-1) / 2);
+}
+
+.badge[data-risk="low"] { background: var(--risk-low-subtle); }
+.badge[data-risk="low"] .icon { color: var(--risk-low); }
+.badge[data-risk="moderate"] { background: var(--risk-moderate-subtle); }
+.badge[data-risk="moderate"] .icon { color: var(--risk-moderate); }
+.badge[data-risk="high"] { background: var(--risk-high-subtle); }
+.badge[data-risk="high"] .icon { color: var(--risk-high); }
+.badge[data-risk="severe"] { background: var(--risk-severe-subtle); }
+.badge[data-risk="severe"] .icon { color: var(--risk-severe); }
+.badge[data-risk="notravel"] { background: var(--risk-notravel-subtle); }
+.badge[data-risk="notravel"] .icon { color: var(--risk-notravel); }
+.badge[data-risk="unknown"] { background: var(--risk-unknown-subtle); }
+.badge[data-risk="unknown"] .icon { color: var(--risk-unknown); }

@@ -1,0 +1,111 @@
+.truck {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  border: medium solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 thin var(--space-1) var(--color-shadow);
+}
+
+.truck svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+.selected {
+  border-color: var(--color-surface);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.pin {
+  display: grid;
+  place-items: center;
+  width: calc(var(--space-6) + var(--space-1));
+  height: calc(var(--space-6) + var(--space-1));
+  border: medium solid var(--map-route-casing);
+  border-radius: var(--radius-full);
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+.pin svg {
+  width: calc(var(--space-3) + var(--space-1) / 2);
+  height: calc(var(--space-3) + var(--space-1) / 2);
+}
+
+.sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3; /* over the trip sheet (Pencil 12c) */
+  max-height: 70dvh;
+  padding: var(--control-height) var(--space-5) var(--space-5); /* top row is the close button's */
+  overflow-y: auto;
+  border-top: thin solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface-raised);
+  box-shadow: 0 calc(-1 * var(--space-1)) var(--space-4) var(--color-shadow);
+}
+
+.close {
+  position: absolute;
+  top: 0;
+  right: var(--space-2);
+  display: grid;
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.close svg {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.close:focus-visible {
+  outline: medium solid var(--color-focus-ring);
+}
+
+.stop {
+  display: grid;
+  place-items: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: medium solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-brand);
+}
+
+.stop svg {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+/* "Route X" tag beside each route (Pencil 04): the selected route's is filled. The cards are the accessible names. */
+.tag {
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none; /* clicks reach the route line under it */
+}
+
+.tagSelected {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}

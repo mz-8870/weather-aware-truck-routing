@@ -1,2 +1,5 @@
-# Vercel installs Python deps from the project root.
--r backend/requirements.txt
+# Single list of runtime deps; Vercel reads this file at the project root (its parser cannot follow -r includes).
+Django==6.1.2
+djangorestframework==3.18.3
+python-dotenv==1.2.4
+httpx==0.28.1

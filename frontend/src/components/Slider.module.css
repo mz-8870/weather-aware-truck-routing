@@ -24,8 +24,8 @@
 
 .thumb {
   display: block;
-  width: var(--space-5);
-  height: var(--space-5);
+  width: var(--space-6); /* 24px target size now that borders count inside it */
+  height: var(--space-6);
   border: medium solid var(--color-brand);
   border-radius: var(--radius-full);
   background: var(--color-surface);
@@ -35,4 +35,11 @@
 .thumb:focus-visible {
   outline: medium solid var(--color-focus-ring);
   outline-offset: thin;
+}
+
+/* Touch: the whole 44px row grabs the thumb. */
+@media (pointer: coarse) {
+  .root {
+    height: var(--control-height);
+  }
 }

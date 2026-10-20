@@ -1,0 +1,81 @@
+import type { PaddingOptions } from "maplibre-gl";
+
+// Room the map controls take, in px, so fitBounds frames the routes where nothing covers them.
+// Keep in step with ForecastControls.module.css (toggle, legend, dock) and App.module.css (sheet heights).
+const DESKTOP = { top: 120, right: 320, bottom: 140, left: 48 }; // toggle + loading chip, legend, dock
+const PHONE_TOP = 84; // layer chips
+const PHONE_SIDE = 24;
+const PHONE_DOCK = 108; // slider dock above the sheet, with its gaps
+const SHEET_OPEN = 0.45; // of the viewport height, as 45dvh
+const SHEET_PEEK = 120;
+const PIN = 16; // fitBounds centres a pin on the padding edge; half a 28 px pin, with slack
+// When the map is too small for the full padding, keep a box for the routes: half the map, at most 160 px,
+// so a narrow tablet still frames the trip instead of MapLibre refusing to fit.
+// shortcut: on short phones (~667 px) with the sheet open this shrinks the dock reservation too, so a pin can touch
+// the dock's top edge; shrink the top side first if that shows up in use.
+const MIN_BOX = 160;
+
+// Scale two opposite sides down together (keeping their ratio) so `size` still leaves the minimum box between them.
+function fit(a: number, b: number, size: number): [number, number] {
+  const room = Math.max(0, size - Math.min(size / 2, MIN_BOX));
+  if (a + b <= room) return [a, b];
+  const k = room / (a + b);
+  return [Math.floor(a * k), Math.floor(b * k)];
+}
+
+export function fitPadding(o: { phone: boolean; sheet: "open" | "peek"; viewportHeight: number; mapWidth: number; mapHeight: number }): PaddingOptions {
+  const sheetPx = o.sheet === "open" ? Math.round(o.viewportHeight * SHEET_OPEN) : SHEET_PEEK;
+  const base = o.phone ? { top: PHONE_TOP, right: PHONE_SIDE, bottom: sheetPx + PHONE_DOCK, left: PHONE_SIDE } : DESKTOP;
+  // Without this, MapLibre refuses to fit ("Map cannot fit within canvas") and the routes are never framed.
+  const [left, right] = fit(base.left + PIN, base.right + PIN, o.mapWidth);
+  const [top, bottom] = fit(base.top + PIN, base.bottom + PIN, o.mapHeight);
+  return { top, right, bottom, left };
+}
+
+const LABEL_SPAN = [0.2, 0.8]; // keep tags off the shared ends, where the origin and destination pins sit
+const LABEL_CANDIDATES = 100; // points tried per route; enough to find the widest gap
+const LABEL_POINTS = 2000; // per route: plenty to place a tag, and keeps long trips (20k+ points) to a few ms
+const LABEL_OTHERS = 500; // points of the other routes measured against
+
+const lonScale = (lat: number) => Math.cos((lat * Math.PI) / 180); // degrees of longitude shrink away from the equator
+const every = <T>(xs: T[], n: number) => xs.filter((_, j) => j % Math.max(1, Math.ceil(xs.length / n)) === 0);
+
+/** One [lon, lat] per route for its "Route X" tag. Route i searches its own stretch (the i-th of n slices of the
+ *  20-80% window, by distance), so tags never stack where routes run together; within it, the point farthest from
+ *  the other routes wins (ties: nearest the stretch's middle). */
+export function labelPoints(full: [number, number][][]): [number, number][] {
+  const paths = full.map((p) => every(p, LABEL_POINTS));
+  const [lo, hi] = LABEL_SPAN;
+  const slice = (hi - lo) / paths.length;
+  return paths.map((path, r) => {
+    const others = every(paths.filter((_, o) => o !== r).flat(), LABEL_OTHERS);
+    const cum = [0];
+    for (let i = 1; i < path.length; i++) {
+      const [[x1, y1], [x2, y2]] = [path[i - 1], path[i]];
+      cum.push(cum[i - 1] + Math.hypot((x2 - x1) * lonScale(y1), y2 - y1));
+    }
+    const at = (i: number) => (cum[cum.length - 1] ? cum[i] / cum[cum.length - 1] : 0.5);
+    const [from, to] = [lo + r * slice, lo + (r + 1) * slice];
+    const mid = (from + to) / 2;
+    const inside = path.map((_, i) => i).filter((i) => at(i) >= from - 1e-9 && at(i) <= to + 1e-9);
+    // A long straight segment can leave a stretch without vertices: fall back to the vertex nearest its middle.
+    const candidates = inside.length
+      ? every(inside, LABEL_CANDIDATES)
+      : [path.reduce((b, _, i) => (Math.abs(at(i) - mid) < Math.abs(at(b) - mid) ? i : b), 0)];
+    let best = candidates[0];
+    let bestGap = -1;
+    for (const i of candidates) {
+      const [lon, lat] = path[i];
+      const k = lonScale(lat);
+      let gap = Infinity; // squared: only the order matters
+      for (let j = 0; j < others.length; j++) {
+        const dx = (others[j][0] - lon) * k;
+        const dy = others[j][1] - lat;
+        if (dx * dx + dy * dy < gap) gap = dx * dx + dy * dy;
+      }
+      const tie = (gap === bestGap || Math.abs(gap - bestGap) <= 1e-12) && Math.abs(at(i) - mid) < Math.abs(at(best) - mid);
+      if (gap > bestGap + 1e-12 || tie) [best, bestGap] = [i, gap];
+    }
+    return path[best];
+  });
+}

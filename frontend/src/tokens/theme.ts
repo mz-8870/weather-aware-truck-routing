@@ -42,3 +42,22 @@ export function riskRgba(mode: Mode, t: { color: Colors } = tokens): Record<Risk
 export function setTheme(mode: Mode): void {
   document.documentElement.dataset.theme = mode;
 }
+
+const THEME_KEY = "theme";
+
+/** SPEC: light by default; dark only once chosen. */
+export function loadTheme(): Mode {
+  try {
+    return localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light"; // storage blocked (private mode)
+  }
+}
+
+export function saveTheme(mode: Mode): void {
+  try {
+    localStorage.setItem(THEME_KEY, mode);
+  } catch {
+    // not remembered this time; the toggle still works
+  }
+}

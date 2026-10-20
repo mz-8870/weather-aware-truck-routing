@@ -1,0 +1,249 @@
+.panel {
+  border: thin solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  box-shadow: 0 var(--space-1) var(--space-4) var(--color-shadow);
+}
+
+.layers {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  composes: panel;
+}
+
+.caption {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.chip {
+  display: flex;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  box-shadow: 0 thin var(--space-1) var(--color-shadow);
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.retry {
+  height: auto;
+  padding: 0 var(--space-1);
+}
+
+.spin {
+  width: var(--space-4);
+  height: var(--space-4);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+.legend {
+  position: absolute;
+  top: var(--space-4);
+  right: calc(var(--space-12) + var(--space-2)); /* clear of the zoom control */
+  padding: var(--space-3) var(--space-4);
+  composes: panel;
+}
+
+.legendTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.scale {
+  display: flex;
+  gap: calc(var(--space-1) / 2);
+  width: calc(var(--space-12) * 4 + var(--space-6));
+}
+
+.scale span {
+  flex: 1;
+  height: var(--space-2);
+}
+
+.scale span:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.scale span:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.scaleLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+}
+
+.bands,
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+}
+
+.bands,
+.lines {
+  margin-top: var(--space-3);
+}
+
+.lines {
+  padding-top: var(--space-2);
+  border-top: thin solid var(--color-border);
+}
+
+.band {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.swatch {
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.bound {
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.line {
+  width: var(--space-5);
+  height: calc(var(--space-1) / 2);
+  border-radius: var(--radius-full);
+  background: var(--color-text-tertiary);
+}
+
+.selectedLine {
+  height: var(--space-1);
+  background: var(--color-text-primary);
+}
+
+.dock {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-6);
+  left: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: calc(var(--space-10) * 18);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4);
+  composes: panel;
+}
+
+.play {
+  flex: none;
+  width: var(--control-height);
+  padding: 0;
+  border-radius: var(--radius-full);
+}
+
+.scrub {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.readoutRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+}
+
+.label {
+  color: var(--color-text-secondary);
+}
+
+.readout {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+/* Phones: chips across the top, dock above the trip sheet, no legend (Pencil 12d). */
+@media (max-width: 40em) {
+  .layers {
+    top: var(--space-3);
+    right: calc(var(--space-12) + var(--space-1)); /* clear of the zoom control */
+    left: var(--space-3);
+  }
+
+  .toggle {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none; /* still scrolls by touch, wheel and arrow keys; the bar only cramped the chips */
+  }
+
+  .toggle::-webkit-scrollbar {
+    display: none;
+  }
+
+  .caption,
+  .legend {
+    display: none;
+  }
+
+  .dock {
+    right: var(--space-3);
+    bottom: calc(var(--sheet-h) + var(--space-3));
+    left: var(--space-3);
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .ticks {
+    display: none;
+  }
+}

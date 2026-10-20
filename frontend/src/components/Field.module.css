@@ -39,3 +39,12 @@
   font-size: var(--text-xs);
   color: var(--color-danger);
 }
+
+.input[data-warning="true"] {
+  border-color: var(--risk-moderate);
+}
+
+.warning {
+  font-size: var(--text-xs);
+  color: var(--color-text-primary);
+}
