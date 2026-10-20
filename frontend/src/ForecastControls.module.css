@@ -223,6 +223,11 @@
   .toggle {
     max-width: 100%;
     overflow-x: auto;
+    scrollbar-width: none; /* still scrolls by touch, wheel and arrow keys; the bar only cramped the chips */
+  }
+
+  .toggle::-webkit-scrollbar {
+    display: none;
   }
 
   .caption,
