@@ -19,7 +19,7 @@ const stopCount = (stops: Route["stops"]) =>
     .map(([kind, n]) => `${n} ${kind}${n === 1 ? "" : "s"}`)
     .join(" · ");
 
-const weatherDelay = (s: number) => `+${s < 3600 ? `${Math.round(s / 60)} min` : duration(s)} weather`;
+const weatherDelay = (s: number) => `+${Math.round(s / 60) < 60 ? `${Math.round(s / 60)} min` : duration(s)} weather`;
 
 export function RouteCard({ route, recommended, why, selected, onSelect }: Props) {
   const f = useUnits();

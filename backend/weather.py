@@ -126,10 +126,12 @@ def _covers(series: Series, hour: str, days: int) -> bool:
     return series.fetched_on == _today() and series.days >= days  # past its end on purpose: beyond the forecast
 
 
-def readings(client: httpx.Client, points: list[tuple[float, float, datetime]]) -> list[Reading]:
+def readings(client: httpx.Client, points: list[tuple[float, float, datetime]], fetch: bool = True) -> list[Reading]:
+    """`fetch=False` reads the cache only: uncached places read Unknown, and an hour past a cached series is beyond
+    the forecast. For re-reading places just asked for, so one that failed isn't tried again in the same request."""
     wants = [((round(lat, 2), round(lon, 2)), _hour(hour)) for lat, lon, hour in points]
     need: dict[Place, int] = {}  # places to fetch, with the forecast days that cover every hour asked of them
-    for place, hour in wants:
+    for place, hour in wants if fetch else []:
         days, cached = _days_for(hour), _cache.get(place)
         if cached is None or not _covers(cached, hour, days):
             need[place] = max(need.get(place, 0), days)

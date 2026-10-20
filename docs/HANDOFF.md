@@ -76,8 +76,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 42 | Basemap boundary-filter warning | ✅ merged (#43), verified live |
 | 49 | Earliest clear departure | ✅ merged (#55) |
 | 52 | Weather-adjusted speed | ✅ this PR |
-| 49 | Earliest clear departure | ✅ this PR |
-| 50, 52, 53 | Map route labels, weather-adjusted speed, casing pass | open, in that order |
+| 50, 53 | Map route tags (PR #56), casing pass | in review / open |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.

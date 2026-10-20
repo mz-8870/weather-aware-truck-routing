@@ -82,7 +82,7 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
             ? "ETAs include US hours-of-service stops: a 30 min break after 8 h and a 10 h rest after 11 h of driving."
             : "ETAs assume non-stop driving."}
         </p>
-        <p className={styles.note}>Bad weather slows driving: 90% of normal speed at Moderate, 75% at High, 60% at Severe.</p>
+        <p className={styles.note}>ETAs include bad-weather slowdowns: 90% of normal speed at Moderate, 75% at High, 60% at Severe.</p>
       </div>
       {allBlocked ? (
         <>

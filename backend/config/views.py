@@ -157,10 +157,10 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
     delays = [s[-1].offset_s - d[-1].offset_s for s, d in zip(slow, drive)]
     routes = [r._replace(duration_s=s[-1].offset_s) for r, s in zip(routes, slow)]  # ranking uses the slower time
     cps = _wall_clock(slow, t["hos"])
-    stops = [
-        (hos_stops(r.points, r.progress, keys=([c.mile for c in s], [c.offset_s for c in s]) if delay else None) if t["hos"] else [])
-        for r, s, delay in zip(routes, slow, delays)
-    ]
+    stops = []
+    for r, s, delay in zip(routes, slow, delays):
+        keys = ([c.mile for c in s], [c.offset_s for c in s]) if delay else None  # stops follow the slowed timing
+        stops.append(hos_stops(r.points, r.progress, keys) if t["hos"] else [])
     flat = [s for rs in stops for s in rs]
     # shortcut: one uncached TomTom reverse geocode per stop (~24 for a coast-to-coast HOS plan, free tier 2,500/day);
     # cache by rounded position if HOS plans become frequent.
@@ -183,7 +183,9 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         for rs in stops
     ]
     etas = _etas(cps, t["departure"])
-    flat = weather.readings(client, _points(cps, etas)) if any(delays) else first_flat  # unchanged ETAs, same weather
+    # Same places as pass 1 at later hours: the cache holds their whole series, and one that failed stays Unknown
+    # rather than costing a second timeout.
+    flat = weather.readings(client, _points(cps, etas), fetch=False) if any(delays) else first_flat
     readings, results, summaries = _classify(routes, cps, flat, cargo_lb)
     ranked = ranking.rank(summaries)
     names = {i: f"Route {'ABC'[n]}" for n, i in enumerate(ranked.order)}
