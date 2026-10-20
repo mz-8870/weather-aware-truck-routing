@@ -33,7 +33,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20, end of day)
-**Every planned ticket is done and live**, including #49, #50, #52 and #53 (merged as PRs #55–#58). Nothing is in progress; there are no open PRs. Two items wait on the user (see Open items).
+**Every planned ticket is done and live**, including #49, #50, #52 and #53 (merged as PRs #55–#58). Nothing is in progress; there are no open PRs. One item waits on the user (see Open items).
 
 1. **Needs the user:** make the repo public when they say so (`gh repo edit --visibility public --accept-visibility-change-consequences`).
 2. **Deploys:** every merge to `main` deploys to production; every PR gets a Vercel preview. Manual: `npx vercel deploy --prod --yes` from the worktree root (linked via `.vercel/`).
@@ -77,7 +77,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 49 | Earliest clear departure | ✅ merged (#55) |
 | 50 | Route tags on the map + active checkpoint ring | ✅ merged (#56) |
 | 52 | Weather-adjusted speed | ✅ merged (#57) |
-| 53 | Casing pass (rule 16) | ✅ merged (#58); `.pen` text updated in Pencil, not committed until the user saves |
+| 53 | Casing pass (rule 16) | ✅ merged (#58); `.pen` labels committed after the user saved |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -131,5 +131,4 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 ## Open items for the user
 - Make the repo public when ready (only the user can decide).
 - **Speed factors (#52):** confirm or change Moderate 0.90 / High 0.75 / Severe 0.60 (`views.SPEED_FACTOR`, SPEC marks them pending).
-- **`.pen` casing edits (#53):** 131 labels were updated in the open design. The user must save (Ctrl+S); the main checkout's `.pen` already had uncommitted edits from before, so ask whether to commit them together.
 - An empty frame named "Frame" at 0,0 in the `.pen`: the user hasn't said whether to delete it.
