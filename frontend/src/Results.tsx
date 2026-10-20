@@ -18,6 +18,7 @@ type Props = {
   expanded: boolean;
   onSelect: (index: number) => void;
   onBack: () => void;
+  onDepart: (departure: string) => void; // re-plan the same trip at another departure (ISO)
 };
 
 const plural = (n: number) => `${n} route${n === 1 ? "" : "s"}`;
@@ -44,10 +45,11 @@ function detourBanner(plan: Plan) {
   return null;
 }
 
-export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, onBack }: Props) {
+export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, onBack, onDepart }: Props) {
   const f = useUnits();
   const allBlocked = plan.recommended === null;
   const detour = detourBanner(plan);
+  const clear = plan.earliest_clear_departure;
 
   if (expanded) {
     const route = plan.routes[selected];
@@ -82,7 +84,22 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
         </p>
       </div>
       {allBlocked ? (
-        <Banner tone="notravel" title={`No Travel on ${plan.routes.length === 1 ? "the only route" : `all ${plan.routes.length} routes`}`} body="Try a later departure or a lighter load." />
+        <>
+          <Banner
+            tone="notravel"
+            title={`No Travel on ${plan.routes.length === 1 ? "the only route" : `all ${plan.routes.length} routes`}`}
+            body={
+              clear
+                ? `Leave at ${dayTime(clear.departure)} (+${clear.hours_later} h) to avoid No Travel on ${clear.route}.`
+                : "No departure in the next 48 h avoids No Travel. Try a lighter load."
+            }
+          />
+          {clear && (
+            <Button variant="secondary" onClick={() => onDepart(clear.departure)}>
+              Leave {clear.hours_later} h Later
+            </Button>
+          )}
+        </>
       ) : (
         plan.routes.filter((r) => r.summary.notravel_mi > 0).map((r) => <Banner key={r.name} tone="notravel" {...noTravelBanner(r, f)} />)
       )}
