@@ -9,8 +9,10 @@ const PHONE_DOCK = 108; // slider dock above the sheet, with its gaps
 const SHEET_OPEN = 0.45; // of the viewport height, as 45dvh
 const SHEET_PEEK = 120;
 const PIN = 16; // fitBounds centres a pin on the padding edge; half a 28 px pin, with slack
-// When the map is too small for the full padding, keep a box for the routes: half the map, at most 160 px
-// (so a phone keeps its sheet and dock reservation, while a narrow tablet still frames the trip).
+// When the map is too small for the full padding, keep a box for the routes: half the map, at most 160 px,
+// so a narrow tablet still frames the trip instead of MapLibre refusing to fit.
+// shortcut: on short phones (~667 px) with the sheet open this shrinks the dock reservation too, so a pin can touch
+// the dock's top edge; shrink the top side first if that shows up in use.
 const MIN_BOX = 160;
 
 // Scale two opposite sides down together (keeping their ratio) so `size` still leaves the minimum box between them.
