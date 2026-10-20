@@ -39,14 +39,17 @@ const optionalNumber = (text: string) => (text.trim() === "" ? undefined : Numbe
 
 const EXAMPLE_CARGO_LB = 32_000; // Pencil screen 01's example weight
 
-// "YYYY-MM-DDTHH:00" in the browser's zone for a datetime-local input: the next full hour.
+// The next full hour for a datetime-local input.
 function nextHourInput() {
-  return toInput(new Date(Date.now() + 3600_000));
+  const d = new Date(Date.now() + 3600_000);
+  d.setMinutes(0);
+  return toInput(d);
 }
 
+// "YYYY-MM-DDTHH:MM" in the browser's zone, for a datetime-local input.
 function toInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const TIME_ZONE = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value;

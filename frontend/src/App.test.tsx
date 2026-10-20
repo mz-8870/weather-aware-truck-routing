@@ -207,7 +207,7 @@ test("when every route is blocked there is no recommendation", async () => {
 
 test("a blocked trip suggests the earliest clear departure and re-plans with it", async () => {
   const blocked = (name: string) => route(name, { summary: summary({ notravel_mi: 5 }) });
-  const later = "2030-01-15T16:00:00+00:00";
+  const later = "2030-01-15T16:30:00+00:00"; // keeps the trip's minutes
   const fetchMock = renderApp(
     Response.json({
       ...PLAN,
@@ -224,6 +224,10 @@ test("a blocked trip suggests the earliest clear departure and re-plans with it"
   await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(2));
   const [first, second] = fetchMock.mock.calls.filter(([url]) => url === "/api/plan").map(([, init]) => JSON.parse(String(init!.body)));
   expect(second).toEqual({ ...first, departure: later });
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  const d = new Date(later);
+  const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  expect((screen.getByLabelText("Departure") as HTMLInputElement).value).toBe(local); // the form shows the new time
 });
 
 test("a blocked trip with no clear departure in the window says so", async () => {

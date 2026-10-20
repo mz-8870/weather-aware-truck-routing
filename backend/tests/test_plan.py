@@ -352,6 +352,23 @@ def test_blocked_trip_suggests_the_earliest_clear_departure(client: Client, tomt
     assert len([r for r in tomtom_api.sent if r.url.path.startswith("/routing/")]) == 1  # and never re-routes
 
 
+def test_departure_search_retries_a_failed_place_once(client: Client, tomtom_api: FakeTomTom, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(weather, "CHUNK", 1)  # one place per request, so one place can fail alone
+    monkeypatch.setattr(weather, "RETRY_DELAYS_S", ())
+    failing = "39.74"  # Denver: the first checkpoint of every route
+
+    def windy_but_one_place_down(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.open-meteo.com":
+            return httpx.Response(503) if request.url.params["latitude"] == failing else open_meteo(request, wind_mph=47.0)
+        return three_routes([tt_route(MIDDLE, 54000), tt_route(SOUTH, 60000), tt_route(NORTH, 50000)])(request)
+
+    tomtom_api.handler = windy_but_one_place_down
+    body = post(client, trip()).json()
+    assert body["earliest_clear_departure"] is None
+    asked = [r for r in tomtom_api.sent if r.url.host == "api.open-meteo.com" and r.url.params["latitude"] == failing]
+    assert len(asked) == 2  # the plan's batch, then one batch for the whole 48 h search - not once per hour
+
+
 def test_unblocked_trip_has_no_departure_suggestion(client: Client, tomtom_api: FakeTomTom) -> None:
     tomtom_api.handler = lambda request: open_meteo(request, wind_mph=10.0) if request.url.host == "api.open-meteo.com" else tomtom_ok(request)
     body = post(client, trip()).json()
