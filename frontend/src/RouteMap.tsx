@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckpointDetails } from "./CheckpointDetails";
 import { Popover } from "./components/Popover";
-import { fitPadding } from "./mapFit";
+import { fitPadding, labelPoints } from "./mapFit";
 import { mapStyle } from "./mapStyle";
 import type { Route } from "./plan";
 import { riskLevel } from "./risk";
@@ -72,6 +72,9 @@ function routeData(routes: Route[] = [], selected = 0): FeatureCollection {
   };
 }
 
+const activeFilter = (index: number | null) =>
+  ["all", ["==", ["geometry-type"], "Point"], ["==", ["get", "index"], index ?? -1]] as ExpressionSpecification;
+
 function whenLoaded(m: MapLibreMap, fn: () => void) {
   if (m.getSource("route")) fn();
   else m.once("load", fn);
@@ -88,6 +91,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
   const [truckEls, setTruckEls] = useState<HTMLElement[]>([]);
   const [pinEls, setPinEls] = useState<HTMLElement[]>([]);
   const [stopEls, setStopEls] = useState<HTMLElement[]>([]);
+  const [labelEls, setLabelEls] = useState<HTMLElement[]>([]);
   const [milePx, setMilePx] = useState(0); // one mile on screen, so the blur follows zoom and grid spacing
 
   useEffect(() => {
@@ -116,6 +120,8 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
       m.addLayer({ id: "route-casing", type: "line", source: "route", filter: line, layout, paint: { "line-color": c("map-route-casing"), "line-width": emphasis(9, 6), "line-opacity": emphasis(1, 0.6) } });
       m.addLayer({ id: "route-line", type: "line", source: "route", filter: line, layout, paint: { "line-color": riskColor, "line-width": emphasis(5, 3), "line-opacity": emphasis(1, 0.4) } });
       m.addLayer({ id: "checkpoints", type: "circle", source: "route", filter: point, paint: { "circle-radius": 5, "circle-color": c("color-surface"), "circle-stroke-color": riskColor, "circle-stroke-width": 3 } });
+      // A ring around the checkpoint whose details are open; its filter follows `popup`.
+      m.addLayer({ id: "checkpoint-active", type: "circle", source: "route", filter: activeFilter(null), paint: { "circle-radius": 10, "circle-opacity": 0, "circle-stroke-color": c("color-text-primary"), "circle-stroke-width": 2.5 } });
       m.on("click", "checkpoints", (e) => {
         const index = e.features?.[0]?.properties.index;
         if (typeof index === "number") setPopup({ index, x: e.point.x, y: e.point.y });
@@ -201,6 +207,26 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
     );
   }, [heat, milePx, mode]);
 
+  const active = popup?.index ?? null;
+  useEffect(() => {
+    const m = map.current;
+    if (m) whenLoaded(m, () => m.setFilter("checkpoint-active", activeFilter(active)));
+  }, [active]);
+
+  // "Route X" tags, each in its own stretch of the trip; 14 px up clears the active ring (radius 10 + stroke).
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !routes?.length) return;
+    const points = labelPoints(routes.map((r) => r.segments.flatMap((s) => s.coordinates)));
+    const els = points.map(() => document.createElement("div"));
+    const tags = els.map((el, i) => new Marker({ element: el, anchor: "bottom", offset: [0, -14] }).setLngLat(points[i]).addTo(m));
+    setLabelEls(els);
+    return () => {
+      tags.forEach((t) => t.remove());
+      setLabelEls([]);
+    };
+  }, [routes]);
+
   const truckCount = trucks?.length ?? 0;
   useEffect(() => {
     const m = map.current;
@@ -264,6 +290,11 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
           </div>,
           el,
         ),
+      )}
+      {labelEls.map((el, i) =>
+        routes?.[i]
+          ? createPortal(<div className={`${styles.tag} ${i === selected ? styles.tagSelected : ""}`} aria-hidden>{routes[i].name}</div>, el)
+          : null,
       )}
       {stopEls.map((el, i) => {
         const stop = stops?.[i];

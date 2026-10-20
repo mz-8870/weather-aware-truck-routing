@@ -30,6 +30,5 @@ These are deliberately out of scope for this version. Each item says why it matt
 ## Experience
 
 - **Keyboard access to checkpoint details on the map.** The checkpoint list could open the same details and highlight the point on the map.
-- **Route labels on the map** ("Route A/B/C" tags, as in the Pencil design) and a highlighted active checkpoint.
 - **Offline-ready PWA** for drivers with patchy coverage, keeping the last plan.
 - **Localization** beyond US English and the imperial/metric toggle.
