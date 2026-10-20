@@ -2,6 +2,12 @@
 
 **Live:** https://weather-aware-truck-routing-gamma.vercel.app
 
+## Walkthrough video
+
+[![Walkthrough video (7 min): the Denver → Salt Lake City winter storm example, with the No Travel route ranked last](docs/walkthrough.png)](docs/walkthrough.mp4)
+
+[Watch the 7-minute walkthrough](docs/walkthrough.mp4) (MP4, subtitled). It follows [LOOM_SCRIPT.md](LOOM_SCRIPT.md): logic, the map and heatmap, code quality and docs. The example trips in it use the [simulated storm](#example-trips-simulated-weather); Seattle → Miami uses the live forecast.
+
 Plan a truck trip and see the weather **where the truck will be, when it gets there**. The app compares up to three truck routes and checks the forecast every 10, 25 or 50 miles at each checkpoint's ETA. It classifies the risk (with load rules for heavy cargo), recommends the safest route, and lets you scrub a 0–48 h weather heatmap with trucks moving along their routes.
 
 ![Seattle → Miami: three routes, risk heatmap, checkpoint markers and the forecast slider](docs/perf-seattle-miami.png)
