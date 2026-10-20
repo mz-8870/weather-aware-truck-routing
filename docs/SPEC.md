@@ -23,7 +23,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 ## Checkpoints & ETA
 - Points every N miles along the polyline; ETA interpolated from TomTom per-point travel times (traffic-aware for departure time). Optional US hours-of-service breaks (#31, added 2026-10-20): 30 min after 8 h of driving, 10 h rest after 11 h; see README.
 - Each checkpoint owns half the interval on each side (nearest-checkpoint attribution). Drop zero-length/duplicate endpoints.
-- Weather-adjusted speed (#52; the issue's proposed factors, in use until the user confirms or changes them): Low 1.00, Moderate 0.90, High 0.75, Severe 0.60 of normal speed; No Travel and Unknown 1.00. Each checkpoint's level at TomTom's ETAs slows the half-interval on each side; weather is re-checked once at the slowed ETAs (no iteration). HOS breaks are added after slowing. Ranking travel time = slowed drive time; cards show the added time.
+- Weather-adjusted speed (#52; factors confirmed by the user, 2026-10-20): Low 1.00, Moderate 0.90, High 0.75, Severe 0.60 of normal speed; No Travel and Unknown 1.00. Each checkpoint's level at TomTom's ETAs slows the half-interval on each side; weather is re-checked once at the slowed ETAs (no iteration). HOS breaks are added after slowing. Ranking travel time = slowed drive time; cards show the added time.
 
 ## Risk classification (canonical imperial, lower-inclusive / upper-exclusive)
 | Level | Wind mph | Rain in/hr | Snow in/hr |
