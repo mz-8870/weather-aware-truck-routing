@@ -119,7 +119,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 ### Recommendation
 
-- **No Travel:** a route with any No Travel mile ranks last and gets a banner. If every route is blocked, nothing is recommended.
+- **No Travel:** a route with any No Travel mile ranks last and gets a banner. If every route is blocked, nothing is recommended; the app instead suggests the earliest departure in the next 48 h (same routes, 1 h steps) that has a route clear of No Travel, with a button to re-plan at that time.
 - **Ranking:** routes are ordered by severe miles, then high miles, then mile-weighted average risk (0–4), then travel time. Miles are rounded to 0.1. The UI states the deciding factor against Route B.
 - **Fewer than 3 routes:** if TomTom returns fewer than three, the app adds via-point detours (±15% / ±30% off the midpoint). Duplicates are dropped, and the UI explains detours or the shortfall.
 
@@ -198,6 +198,7 @@ Response `200`:
   }],
   "recommended": 0,
   "why": "Wins on high miles: 12.5 mi vs 48.0 mi on Route B (both 0 severe).",
+  "earliest_clear_departure": null,
   "routes_found": 3,
   "cargo_lb": 32000
 }
@@ -206,6 +207,7 @@ Response `200`:
 | Field | Meaning |
 |---|---|
 | `routes` | Best first. `recommended` is `0`, or `null` when every route is blocked. |
+| `earliest_clear_departure` | When every route is blocked: `{hours_later, departure, route}` for the first later departure (1–48 h) with a route clear of No Travel; otherwise `null` |
 | `level` | 0 Low … 4 No Travel; `null` is Unknown |
 | `duration_s` | Driving time |
 | `trip_s` | Departure to arrival, including HOS stops |

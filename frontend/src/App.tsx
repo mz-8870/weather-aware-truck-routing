@@ -41,7 +41,10 @@ const EXAMPLE_CARGO_LB = 32_000; // Pencil screen 01's example weight
 
 // "YYYY-MM-DDTHH:00" in the browser's zone for a datetime-local input: the next full hour.
 function nextHourInput() {
-  const d = new Date(Date.now() + 3600_000);
+  return toInput(new Date(Date.now() + 3600_000));
+}
+
+function toInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:00`;
 }
@@ -315,6 +318,10 @@ export default function App() {
                     setExpanded(true);
                   }}
                   onBack={() => setExpanded(false)}
+                  onDepart={(departure) => {
+                    setForm({ ...form, departure: toInput(new Date(departure)) }); // Edit then shows the new time
+                    run({ ...plan.variables!, departure });
+                  }}
                 />
               )}
             </aside>

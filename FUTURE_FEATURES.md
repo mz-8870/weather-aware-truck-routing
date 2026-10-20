@@ -4,7 +4,6 @@ These are deliberately out of scope for this version. Each item says why it matt
 
 ## Planning
 
-- **Earliest clear departure.** When every route crosses No Travel, the app says so but recommends nothing. The next step is to re-run the classification for departures in 1-hour steps across the forecast window, then suggest the earliest departure whose best route has no No Travel miles. Weather comes from the same cache, so most steps cost no new Open-Meteo calls.
 - **Full hours-of-service model.** Today's HOS toggle covers the 30-minute break and the 11-hour/10-hour cycle. Still missing:
   - the 14-hour on-duty window
   - the 60/70-hour weekly limits with a 34-hour restart

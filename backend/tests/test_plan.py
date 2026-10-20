@@ -323,6 +323,40 @@ def test_all_routes_blocked_means_no_recommendation(client: Client, tomtom_api: 
     body = post(client, trip()).json()
     assert body["recommended"] is None and body["why"] is None
     assert len(body["routes"]) == 3
+    assert body["earliest_clear_departure"] is None  # windy for the whole 48 h window
+
+
+def test_blocked_trip_suggests_the_earliest_clear_departure(client: Client, tomtom_api: FakeTomTom) -> None:
+    def calm_from_hour_10(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "api.open-meteo.com":
+            reply = open_meteo(request, wind_mph=47.0)
+            body = reply.json()
+            for place in body:
+                place["hourly"]["wind_speed_10m"] = [47.0] * 10 + [10.0] * 62
+            return httpx.Response(200, json=body)
+        return three_routes([tt_route(MIDDLE, 54000), tt_route(SOUTH, 60000), tt_route(NORTH, 50000)])(request)
+
+    tomtom_api.handler = calm_from_hour_10
+    departure = datetime.now(timezone.utc) + timedelta(hours=2)
+    body = post(client, trip(departure=departure.isoformat())).json()
+
+    assert body["recommended"] is None
+    clear = body["earliest_clear_departure"]
+    # Departs in hour 2 of the series; every checkpoint (ETA >= departure) is calm from hour 10, so 8 h later.
+    assert clear["hours_later"] == 8
+    assert datetime.fromisoformat(clear["departure"]) == departure + timedelta(hours=8)
+    fastest = next(r["name"] for r in body["routes"] if r["duration_s"] == 50000)
+    assert clear["route"] == fastest  # equally calm then, so time decides
+    fetched = [p for r in tomtom_api.sent if r.url.host == "api.open-meteo.com" for p in zip(r.url.params["latitude"].split(","), r.url.params["longitude"].split(","))]
+    assert len(fetched) == len(set(fetched))  # the search reads the cache: no place is fetched twice
+    assert len([r for r in tomtom_api.sent if r.url.path.startswith("/routing/")]) == 1  # and never re-routes
+
+
+def test_unblocked_trip_has_no_departure_suggestion(client: Client, tomtom_api: FakeTomTom) -> None:
+    tomtom_api.handler = lambda request: open_meteo(request, wind_mph=10.0) if request.url.host == "api.open-meteo.com" else tomtom_ok(request)
+    body = post(client, trip()).json()
+    assert body["recommended"] == 0
+    assert body["earliest_clear_departure"] is None
 
 
 def test_route_of_identical_points_is_the_same_place(client: Client, tomtom_api: FakeTomTom) -> None:

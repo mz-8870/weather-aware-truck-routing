@@ -61,6 +61,8 @@ export type Plan = {
   routes: Route[]; // best first
   recommended: number | null; // null when every route crosses No Travel
   why: string | null;
+  // When every route is blocked: the first later departure (1–48 h) with a route clear of No Travel, if any.
+  earliest_clear_departure: { hours_later: number; departure: string; route: string } | null;
   routes_found: number; // how many TomTom returned before detours
   cargo_lb: number;
 };

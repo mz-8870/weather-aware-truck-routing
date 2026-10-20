@@ -39,7 +39,7 @@ Source brief: `docs/fs-assessment-spotter.pdf`. Grading: 40% logic, 40% UI/map/h
 - ETA beyond forecast horizon → use last available hour, flag "beyond forecast".
 
 ## Recommendation
-- Any No Travel mile → route ranked last with banner. All 3 blocked → no recommendation (earliest clear departure = future feature).
+- Any No Travel mile → route ranked last with banner. All 3 blocked → no recommendation; instead suggest the earliest clear departure: same routes, departures 1–48 h later in 1 h steps (ETAs shifted, weather from the cache, no re-routing), first hour whose ranking recommends a route. The banner offers a button that re-plans at that time (#49).
 - Otherwise strict lexicographic on (Severe mi, High mi, mile-weighted avg risk 0–4, travel time), miles rounded to 0.1.
 - UI states the deciding factor.
 
