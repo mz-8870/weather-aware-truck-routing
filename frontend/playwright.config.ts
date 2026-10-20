@@ -26,7 +26,7 @@ export default defineConfig({
         command: "npm run build && npx vite preview --port 4173 --strictPort",
         url: "http://localhost:4173",
         // Never reuse a server already on 4173: another run's preview would silently test a different build.
-    reuseExistingServer: false,
+        reuseExistingServer: false,
         timeout: 180_000,
       },
 });

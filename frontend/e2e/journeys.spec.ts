@@ -156,10 +156,13 @@ test.describe("the forecast map", () => {
         .filter((e) => getComputedStyle(e).display !== "none")
         .map((e) => ({ name: e.className, ...e.getBoundingClientRect().toJSON() })),
     );
+    const map = await page.locator("main").boundingBox();
     type Box = { x: number; y: number; width: number; height: number };
     const overlap = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-    expect(pins).toHaveLength(2);
-    return pins.flatMap((p) => covers.filter((c) => overlap(p, c)).map((c) => c.name));
+    const inside = (a: Box, b: Box) => a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height;
+    if (pins.length !== 2) return ["pins missing"];
+    // A pin outside the map (e.g. a fit that never ran) is as hidden as one under a control.
+    return pins.flatMap((p) => [...(inside(p, map!) ? [] : ["outside the map"]), ...covers.filter((c) => overlap(p, c)).map((c) => c.name)]);
   }
 
   test("after planning, both ends of the trip are in view, not under the controls", async ({ page, api, isMobile }) => {
@@ -171,14 +174,34 @@ test.describe("the forecast map", () => {
     await fillTrip(page);
     await page.getByRole("button", { name: "Plan routes" }).click();
     if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
-    await page.waitForTimeout(1000); // the fit animates
-    // On desktop the sidebar sits beside the map, so only phone layouts can cover pins with it.
-    expect(await pinsHiddenBy(page)).toEqual([]);
+    // The fit animates; wait until it settles clear. On desktop the sidebar sits beside the map, not over it.
+    await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
     if (isMobile) {
       await page.getByRole("button", { name: "Trip panel" }).click(); // collapse: the map re-fits into the larger space
-      await page.waitForTimeout(1000);
-      expect(await pinsHiddenBy(page)).toEqual([]);
+      await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
     }
+  });
+
+  test("on a tablet in portrait the map still frames both ends of the trip", async ({ page, api, isMobile }) => {
+    test.skip(isMobile, "desktop layout at a mid width");
+    await page.setViewportSize({ width: 768, height: 1024 }); // map ~327 px wide beside the sidebar
+    const ne = (name: string, offsetLat: number) => route(name, { offsetLat, step: [1.35, 3] });
+    api.plan({ json: { ...PLAN, routes: [ne("Route A", 0), ne("Route B", 0.6), ne("Route C", -0.6)] } });
+    await page.goto("/");
+    await fillTrip(page);
+    await page.getByRole("button", { name: "Plan routes" }).click();
+    await expect(page.getByRole("heading", { name: results() })).toBeVisible();
+    // The full desktop padding is wider than this map; without scaling it down MapLibre skips the fit entirely and
+    // the map stays on the continental view, where this trip spans only ~20% of the width.
+    const framed = async () => {
+      const xs = await page.locator(".maplibregl-marker").evaluateAll((els) =>
+        els.filter((e) => e.querySelector("svg.lucide-circle-dot, svg.lucide-flag")).map((e) => e.getBoundingClientRect().x),
+      );
+      const width = (await page.locator("main").boundingBox())!.width;
+      return xs.length === 2 && Math.abs(xs[1] - xs[0]) / width > 0.3;
+    };
+    await expect.poll(framed, { timeout: 5000 }).toBe(true);
+    expect((await pinsHiddenBy(page)).filter((r) => r === "outside the map")).toEqual([]);
   });
 
   test("switch heatmap layers and scrub 0–48 h without new requests", async ({ page, api, isMobile }) => {

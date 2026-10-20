@@ -158,7 +158,8 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
     whenLoaded(m, () => {
       const bounds = coords.reduce((b, p) => b.extend(p), new LngLatBounds(coords[0], coords[0]));
       // Frame the routes where no control covers them; on phones, re-fit as the trip sheet opens or collapses.
-      const padding = fitPadding({ phone: window.matchMedia(PHONE).matches, sheet, viewportHeight: window.innerHeight });
+      const { clientWidth: mapWidth, clientHeight: mapHeight } = m.getContainer();
+      const padding = fitPadding({ phone: window.matchMedia(PHONE).matches, sheet, viewportHeight: window.innerHeight, mapWidth, mapHeight });
       m.fitBounds(bounds, { padding, duration: 600 });
     });
   }, [routes, sheet]);
