@@ -24,12 +24,12 @@ const UNITS = [
 ] as const;
 
 const MODES = [
-  { value: "cargo", label: "Cargo only" },
-  { value: "gross", label: "Gross (truck + cargo)" },
+  { value: "cargo", label: "Cargo Only" },
+  { value: "gross", label: "Gross (Truck + Cargo)" },
 ] as const;
 const RESTS = [
-  { value: "off", label: "Non-stop" },
-  { value: "on", label: "US hours of service" },
+  { value: "off", label: "Non-Stop" },
+  { value: "on", label: "US Hours of Service" },
 ] as const;
 const MAX_GROSS_LB = 80_000; // SPEC: warn, don't block
 
@@ -194,7 +194,7 @@ export default function App() {
   const tools = (
     <>
       <SegmentedControl label="Units" hideLabel value={units} options={[...UNITS]} onChange={(next) => setUnits(next)} />
-      <Button variant="secondary" type="button" className={styles.iconButton} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} onClick={toggleTheme}>
+      <Button variant="secondary" type="button" className={styles.iconButton} aria-label={`Switch to ${theme === "dark" ? "Light" : "Dark"} Theme`} onClick={toggleTheme}>
         {theme === "dark" ? <Sun aria-hidden /> : <Moon aria-hidden />}
       </Button>
     </>
@@ -229,7 +229,7 @@ export default function App() {
           </header>
           <div className={styles.body} data-sheet={sheetOpen ? "open" : "peek"}>
             <aside ref={sidebar} className={styles.sidebar}>
-              <button type="button" className={styles.handle} aria-label="Trip panel" aria-expanded={sheetOpen} onClick={() => setSheetOpen(!sheetOpen)}>
+              <button type="button" className={styles.handle} aria-label="Trip Panel" aria-expanded={sheetOpen} onClick={() => setSheetOpen(!sheetOpen)}>
                 <span aria-hidden />
               </button>
               {!editing && plan.variables && <TripSummary trip={plan.variables} onEdit={() => setEditing(true)} />}
@@ -261,42 +261,42 @@ export default function App() {
                     helper={TIME_ZONE && `Your time zone (${TIME_ZONE})`}
                   />
                   <Field
-                    label={`${form.mode === "cargo" ? "Cargo" : "Gross"} weight (${f.weightUnit})`}
+                    label={`${form.mode === "cargo" ? "Cargo" : "Gross"} Weight (${f.weightUnit})`}
                     required
                     {...bindWeight("weight")}
                     error={fieldError("weight_lb")}
                     warning={weights.weight !== undefined && gross > MAX_GROSS_LB ? `Over ${f.weight(MAX_GROSS_LB)} gross` : undefined}
                     helper={`Max ${f.weight(MAX_GROSS_LB)} gross`}
                   />
-                  <SegmentedControl label="Weight entered as" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
+                  <SegmentedControl label="Weight Entered As" value={form.mode} options={[...MODES]} onChange={(mode) => setForm({ ...form, mode })} />
                   <SegmentedControl
-                    label="Check weather every"
+                    label="Check Weather Every"
                     value={form.interval}
                     options={[10, 25, 50].map((mi) => ({ value: String(mi), label: f.interval(mi) }))}
                     onChange={(interval) => setForm({ ...form, interval })}
                   />
-                  <SegmentedControl label="Rest breaks" value={form.hos} options={[...RESTS]} onChange={(hos) => setForm({ ...form, hos })} />
+                  <SegmentedControl label="Rest Breaks" value={form.hos} options={[...RESTS]} onChange={(hos) => setForm({ ...form, hos })} />
                   <Button variant="ghost" type="button" className={styles.advanced} aria-expanded={showAdvanced} onClick={() => setAdvanced(!showAdvanced)}>
                     {showAdvanced ? <ChevronDown aria-hidden className={styles.chevron} /> : <ChevronRight aria-hidden className={styles.chevron} />}
-                    Advanced: empty-truck weight, axles
+                    Advanced: Empty-Truck Weight, Axles
                   </Button>
                   {showAdvanced && (
                     <div className={styles.advancedFields}>
                       <Field
-                        label={`Empty truck weight (${f.weightUnit})`}
+                        label={`Empty Truck Weight (${f.weightUnit})`}
                         required
                         {...bindWeight("emptyTruck")}
                         error={fieldError("empty_truck_lb")}
                         helper="Added to cargo for routing. Risk rules use cargo only."
                       />
                       <div className={styles.row}>
-                        <Field label="Axles (optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
-                        <Field label={`Weight per axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
+                        <Field label="Axles (Optional)" type="number" min={2} max={12} step={1} {...bind("axles")} error={fieldError("axle_count")} />
+                        <Field label={`Weight per Axle (${f.weightUnit})`} {...bindWeight("axleWeight")} min={1} error={fieldError("axle_weight_lb")} />
                       </div>
                     </div>
                   )}
                   <Button type="submit" disabled={plan.isPending}>
-                    Plan routes
+                    Plan Routes
                   </Button>
                   {plan.isIdle && <Examples onPick={tryExample} />}
                 </form>

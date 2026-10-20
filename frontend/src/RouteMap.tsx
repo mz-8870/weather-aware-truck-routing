@@ -301,7 +301,7 @@ export function RouteMap({ routes, selected, onSelect, heat, trucks, mode, sheet
         if (!stop) return null;
         const { label, Icon } = STOP[stop.kind];
         return createPortal(
-          <div className={styles.stop} title={`${label}${stop.place ? ` near ${stop.place}` : ""}`}>
+          <div className={styles.stop} title={`${label.toLowerCase()}${stop.place ? ` near ${stop.place}` : ""}`}>
             <Icon aria-hidden />
           </div>,
           el,

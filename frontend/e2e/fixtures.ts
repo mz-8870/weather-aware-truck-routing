@@ -150,5 +150,5 @@ export async function fillTrip(page: Page, { origin = "Denver, CO", destination 
   await page.getByLabel("Origin").fill(origin);
   await page.getByLabel("Destination").fill(destination);
   await page.getByLabel("Departure").fill(nextHour());
-  await page.getByLabel(/^(Cargo|Gross) weight/).fill(weight);
+  await page.getByLabel(/^(Cargo|Gross) Weight/).fill(weight);
 }

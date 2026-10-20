@@ -112,7 +112,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 ### Weight
 
-- **Cargo only (default):** TomTom gets cargo plus the empty-truck weight (default 35,000 lb).
+- **Cargo Only (default):** TomTom gets cargo plus the empty-truck weight (default 35,000 lb).
 - **Gross:** TomTom gets the gross weight, and cargo = gross − empty truck (never below 0).
 - **Load rules** always use cargo.
 - **Axle count and weight per axle** are sent to TomTom only when set.

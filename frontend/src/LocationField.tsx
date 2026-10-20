@@ -89,7 +89,7 @@ export function LocationField({ label, value, onChange, onPick, error }: Props) 
       />
       {shown && (
         <div className={styles.popup}>
-          <ul id={listId} role="listbox" aria-label={`${label} suggestions`} className={styles.list}>
+          <ul id={listId} role="listbox" aria-label={`${label} Suggestions`} className={styles.list}>
             {places.map((p, i) => (
               <li
                 key={i}

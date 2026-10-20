@@ -5,8 +5,8 @@ import styles from "./StopList.module.css";
 import { useUnits } from "./useUnits";
 
 export const STOP = {
-  break: { label: "30 min break", Icon: Coffee },
-  rest: { label: "10 h rest", Icon: BedDouble },
+  break: { label: "30 min Break", Icon: Coffee },
+  rest: { label: "10 h Rest", Icon: BedDouble },
 };
 
 /** Where and when the driver stops under US hours of service. */

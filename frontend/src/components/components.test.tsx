@@ -22,7 +22,7 @@ afterEach(cleanup);
 test("base components render with accessible names", () => {
   render(
     <ToastProvider>
-      <Button>Plan routes</Button>
+      <Button>Plan Routes</Button>
       <Field label="Origin" helper="City, address or ZIP" />
       <SegmentedControl
         label="Checkpoint spacing"
@@ -33,7 +33,7 @@ test("base components render with accessible names", () => {
         ]}
         onChange={() => {}}
       />
-      <Slider label="Forecast hour" value={18} min={0} max={48} onChange={() => {}} />
+      <Slider label="Forecast Hour" value={18} min={0} max={48} onChange={() => {}} />
       <Popover trigger={<button>Checkpoint 14</button>} open>
         Popover body
       </Popover>
@@ -41,10 +41,10 @@ test("base components render with accessible names", () => {
     </ToastProvider>,
   );
 
-  expect(screen.getByRole("button", { name: "Plan routes" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Plan Routes" })).toBeTruthy();
   expect(screen.getByLabelText("Origin")).toBeTruthy();
   expect(screen.getByRole("radio", { name: "25 mi" }).getAttribute("data-state")).toBe("on");
-  expect(screen.getByRole("slider", { name: "Forecast hour" }).getAttribute("aria-valuenow")).toBe("18");
+  expect(screen.getByRole("slider", { name: "Forecast Hour" }).getAttribute("aria-valuenow")).toBe("18");
   expect(screen.getByText("Popover body")).toBeTruthy();
   expect(screen.getAllByText("Units switched to metric").length).toBeGreaterThan(0);
 });

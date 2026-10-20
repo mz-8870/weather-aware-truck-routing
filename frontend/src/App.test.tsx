@@ -122,16 +122,16 @@ function renderApp(planResponse: Response | Error | Promise<Response>, spacing?:
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("Cargo Weight (lb)"), { target: { value: "70000" } });
   if (spacing) fireEvent.click(screen.getByRole("radio", { name: spacing }));
-  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
   return fetchMock;
 }
 
 test("planning a trip shows three ranked route cards with the recommendation", async () => {
   const fetchMock = renderApp(Response.json(PLAN));
 
-  expect(await screen.findByText("3 routes · Route A recommended")).toBeTruthy();
+  expect(await screen.findByText("3 Routes · Route A Recommended")).toBeTruthy();
   expect(screen.getByText("Ranked by severe miles, then high miles, average risk, travel time.")).toBeTruthy();
   const a = card("Route A");
   expect(a.textContent).toContain("Recommended");
@@ -171,7 +171,7 @@ test("a route slowed by bad weather shows the added time", async () => {
 
 test("a route with no severe, high or unknown miles says so once instead of three zeros", async () => {
   renderApp(Response.json(PLAN));
-  await screen.findByText("3 routes · Route A recommended");
+  await screen.findByText("3 Routes · Route A Recommended");
   expect(card("Route C").textContent).toContain("No severe, high or unknown miles");
   expect(card("Route C").textContent).not.toContain("Severe");
   expect(card("Route A").textContent).not.toContain("No severe, high or unknown miles");
@@ -184,12 +184,12 @@ test("selecting a card emphasizes its route and lists its checkpoints", async ()
   expect(screen.getByText("map: 3 routes, selected 1")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Route B" })).toBeNull(); // expanded card is not a dead button
   expect(card("Route B")).toBeTruthy();
-  expect(screen.getByText("3 checkpoints")).toBeTruthy();
+  expect(screen.getByText("3 Checkpoints")).toBeTruthy();
   expect(screen.getByText("#2 · mi 25")).toBeTruthy();
   expect(screen.getByText("Wind 38 mph")).toBeTruthy();
   expect(screen.getByText("No data")).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "All routes" }));
+  fireEvent.click(screen.getByRole("button", { name: "All Routes" }));
   expect(screen.getByRole("button", { name: "Route C" })).toBeTruthy();
 });
 
@@ -212,7 +212,7 @@ test("when every route is blocked there is no recommendation", async () => {
   const blocked = (name: string) => route(name, { summary: summary({ notravel_mi: 5 }) });
   renderApp(Response.json({ ...PLAN, routes: ["Route A", "Route B", "Route C"].map(blocked), recommended: null, why: null }));
 
-  expect(await screen.findByText("No safe route in this window")).toBeTruthy();
+  expect(await screen.findByText("No Safe Route in This Window")).toBeTruthy();
   expect(screen.getByText("Every route crosses a No Travel zone for a 35,000 lb load. No route is recommended.")).toBeTruthy();
   expect(screen.queryByText("Recommended")).toBeNull();
 });
@@ -267,13 +267,13 @@ test("two detours are announced in the plural", async () => {
 
 test("fewer than three routes says why", async () => {
   renderApp(Response.json({ ...PLAN, routes: [PLAN.routes[0]], routes_found: 1 }));
-  expect(await screen.findByText("1 route · Route A recommended")).toBeTruthy();
+  expect(await screen.findByText("1 Route · Route A Recommended")).toBeTruthy();
   expect(screen.getByText("Only 1 route found")).toBeTruthy();
 });
 
 test("checkpoint spacing toggle changes the requested interval", async () => {
   const fetchMock = renderApp(Response.json(PLAN), "10 mi");
-  await screen.findByText("3 routes · Route A recommended");
+  await screen.findByText("3 Routes · Route A Recommended");
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).interval_mi).toBe(10);
 });
 
@@ -287,10 +287,10 @@ test("after routes appear the heatmap loads for every route's checkpoints; scrub
     departure: new Date("2030-01-15T08:00").toISOString(),
     cargo_lb: 35000,
   });
-  expect(screen.getByText("Risk along corridor")).toBeTruthy();
+  expect(screen.getByText("Risk Along Corridor")).toBeTruthy();
   expect(screen.getByText("+0 h · Tue 08:00")).toBeTruthy();
 
-  const slider = screen.getByRole("slider", { name: "Forecast hour" });
+  const slider = screen.getByRole("slider", { name: "Forecast Hour" });
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   expect(screen.getByText("+2 h · Tue 10:00")).toBeTruthy();
@@ -316,7 +316,7 @@ test("the layer toggle switches the heatmap variable and its legend; Off hides b
 
   fireEvent.click(screen.getByRole("radio", { name: "Wind" }));
   expect(screen.getByText("heat: 1,")).toBeTruthy();
-  expect(screen.getByText("Wind along corridor")).toBeTruthy();
+  expect(screen.getByText("Wind Along Corridor")).toBeTruthy();
   expect(screen.getByText("≥ 45 mph")).toBeTruthy();
 
   fireEvent.click(screen.getByRole("radio", { name: "Rain" }));
@@ -324,15 +324,15 @@ test("the layer toggle switches the heatmap variable and its legend; Off hides b
 
   fireEvent.click(screen.getByRole("radio", { name: "Off" }));
   expect(screen.getByText("heat: none")).toBeTruthy();
-  expect(screen.queryByText("Rain along corridor")).toBeNull();
+  expect(screen.queryByText("Rain Along Corridor")).toBeNull();
 });
 
 test("a heatmap failure leaves the routes usable and offers a retry", async () => {
   const fetchMock = renderApp(Response.json(PLAN), undefined, Response.json({ detail: "Weather layer didn't load." }, { status: 502 }));
   expect(await screen.findByText("Weather layer didn't load")).toBeTruthy();
-  expect(screen.getByText("3 routes · Route A recommended")).toBeTruthy();
+  expect(screen.getByText("3 Routes · Route A Recommended")).toBeTruthy();
   expect(screen.getByText("heat: none")).toBeTruthy();
-  expect(screen.getByRole("slider", { name: "Forecast hour" })).toBeTruthy(); // trucks still scrub
+  expect(screen.getByRole("slider", { name: "Forecast Hour" })).toBeTruthy(); // trucks still scrub
 
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(heatmapCalls(fetchMock)).toHaveLength(2));
@@ -356,7 +356,7 @@ test("a routing outage keeps the trip, and Try again re-sends only the plan requ
   expect(screen.getByText("Nothing was lost — your trip details are kept. This is usually temporary.")).toBeTruthy();
   const others = fetchMock.mock.calls.length - 1;
 
-  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
   await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => url === "/api/plan")).toHaveLength(2));
   const plans = fetchMock.mock.calls.filter(([url]) => url === "/api/plan");
   expect(plans[1][1]?.body).toBe(plans[0][1]?.body);
@@ -374,7 +374,7 @@ test("no drivable route has its own state, and Edit trip reopens the form", asyn
   expect(
     screen.getByText("There's no road connection between these places for a truck. Check the destination, or pick a point on the mainland."),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Edit trip" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit Trip" }));
   expect((screen.getByLabelText("Destination") as HTMLInputElement).value).toBe("Chicago, IL");
 });
 
@@ -405,11 +405,11 @@ test("the empty state explains the map and offers example trips that plan in one
       <App />
     </QueryClientProvider>,
   );
-  expect(screen.getByRole("heading", { name: "Plan a trip" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Plan a Trip" })).toBeTruthy();
   expect(screen.getByText("Your routes will appear here")).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "Amarillo → Oklahoma City · high wind" }));
-  expect(await screen.findByText("3 routes · Route A recommended")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Amarillo → Oklahoma City · High Wind" }));
+  expect(await screen.findByText("3 Routes · Route A Recommended")).toBeTruthy();
   const body = JSON.parse(String(planCall(fetchMock)![1]?.body));
   expect(body).toMatchObject({ origin: "Amarillo, TX", destination: "Oklahoma City, OK", weight_lb: 32000, interval_mi: 25 });
   expect(new Date(body.departure).getTime()).toBeGreaterThan(Date.now());
@@ -427,10 +427,10 @@ test("while planning, the form collapses to a trip summary above skeleton cards"
 
 test("Edit reopens the form with the trip filled in", async () => {
   renderApp(Response.json(PLAN));
-  await screen.findByText("3 routes · Route A recommended");
+  await screen.findByText("3 Routes · Route A Recommended");
   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
   expect((screen.getByLabelText("Origin") as HTMLInputElement).value).toBe("Denver, CO");
-  expect(screen.getByText("3 routes · Route A recommended")).toBeTruthy(); // results stay under the form
+  expect(screen.getByText("3 Routes · Route A Recommended")).toBeTruthy(); // results stay under the form
 });
 
 test("a 400 without a field error still shows an alert", async () => {
@@ -462,10 +462,10 @@ test("typing 3+ characters suggests places; arrows + Enter pick one and planning
   expect(screen.queryByRole("listbox")).toBeNull();
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
-  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  fireEvent.change(screen.getByLabelText("Cargo Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
 
-  await screen.findByText("3 routes · Route A recommended");
+  await screen.findByText("3 Routes · Route A Recommended");
   const body = JSON.parse(String(planCall(fetchMock)![1]?.body));
   expect(body.destination).toBe("Salt Lake City International Airport");
   expect(body.destination_position).toEqual([40.7884, -111.9778]);
@@ -508,9 +508,9 @@ test("editing a picked place drops its coordinates; Escape closes the list", asy
 
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText("Cargo weight (lb)"), { target: { value: "70000" } });
-  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
-  await screen.findByText("3 routes · Route A recommended");
+  fireEvent.change(screen.getByLabelText("Cargo Weight (lb)"), { target: { value: "70000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
+  await screen.findByText("3 Routes · Route A Recommended");
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).origin_position).toBeUndefined();
 });
 
@@ -518,12 +518,12 @@ function fillTrip(weight: string) {
   fireEvent.change(screen.getByLabelText("Origin"), { target: { value: "Denver, CO" } });
   fireEvent.change(screen.getByLabelText("Destination"), { target: { value: "Chicago, IL" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2030-01-15T08:00" } });
-  fireEvent.change(screen.getByLabelText(/^(Cargo|Gross) weight \((lb|kg)\)$/), { target: { value: weight } });
+  fireEvent.change(screen.getByLabelText(/^(Cargo|Gross) Weight \((lb|kg)\)$/), { target: { value: weight } });
 }
 
 async function submittedBody(fetchMock: ReturnType<typeof stubFetch>) {
-  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
-  await screen.findByText("3 routes · Route A recommended");
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
+  await screen.findByText("3 Routes · Route A Recommended");
   return JSON.parse(String(planCall(fetchMock)![1]?.body));
 }
 
@@ -539,8 +539,8 @@ function renderBare() {
 
 test("weight can be entered as gross; the label follows the mode", async () => {
   const fetchMock = renderBare();
-  fireEvent.click(screen.getByRole("radio", { name: "Gross (truck + cargo)" }));
-  expect(screen.getByLabelText("Gross weight (lb)")).toBeTruthy();
+  fireEvent.click(screen.getByRole("radio", { name: "Gross (Truck + Cargo)" }));
+  expect(screen.getByLabelText("Gross Weight (lb)")).toBeTruthy();
   fillTrip("67000");
   const body = await submittedBody(fetchMock);
   expect(body.weight_mode).toBe("gross");
@@ -551,18 +551,18 @@ test("over 80,000 lb gross warns but still plans", async () => {
   const fetchMock = renderBare();
   fillTrip("50000"); // cargo 50,000 + empty 35,000 = 85,000 gross
   expect(screen.getByText("Over 80,000 lb gross")).toBeTruthy();
-  expect(screen.getByLabelText("Cargo weight (lb)").getAttribute("aria-invalid")).toBeNull();
+  expect(screen.getByLabelText("Cargo Weight (lb)").getAttribute("aria-invalid")).toBeNull();
   expect((await submittedBody(fetchMock)).weight_lb).toBe(50000);
 });
 
 test("advanced options send empty-truck weight, and axle params only when filled", async () => {
   const fetchMock = renderBare();
-  const toggle = screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" });
+  const toggle = screen.getByRole("button", { name: "Advanced: Empty-Truck Weight, Axles" });
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(toggle);
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  fireEvent.change(screen.getByLabelText("Empty truck weight (lb)"), { target: { value: "30000" } });
-  fireEvent.change(screen.getByLabelText("Axles (optional)"), { target: { value: "5" } });
+  fireEvent.change(screen.getByLabelText("Empty Truck Weight (lb)"), { target: { value: "30000" } });
+  fireEvent.change(screen.getByLabelText("Axles (Optional)"), { target: { value: "5" } });
   fillTrip("32000");
   let body = await submittedBody(fetchMock);
   expect(body.empty_truck_lb).toBe(30000);
@@ -570,7 +570,7 @@ test("advanced options send empty-truck weight, and axle params only when filled
   expect(body).not.toHaveProperty("axle_weight_lb");
 
   fireEvent.click(screen.getByRole("button", { name: "Edit" })); // the form collapses to a summary after planning
-  fireEvent.change(screen.getByLabelText("Weight per axle (lb)"), { target: { value: "20000" } });
+  fireEvent.change(screen.getByLabelText("Weight per Axle (lb)"), { target: { value: "20000" } });
   fetchMock.mockClear();
   body = await submittedBody(fetchMock);
   expect(body.axle_weight_lb).toBe(20000);
@@ -584,14 +584,14 @@ test("a server error on a collapsed advanced field opens the section to show it"
     </QueryClientProvider>,
   );
   fillTrip("32000");
-  fireEvent.click(screen.getByRole("button", { name: "Plan routes" }));
+  fireEvent.click(screen.getByRole("button", { name: "Plan Routes" }));
   expect(await screen.findByText("Ensure this value is greater than or equal to 2.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Advanced: empty-truck weight, axles" }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("button", { name: "Advanced: Empty-Truck Weight, Axles" }).getAttribute("aria-expanded")).toBe("true");
 });
 
 test("toggling units converts every number on screen without a new request; Undo restores", async () => {
   const fetchMock = renderApp(Response.json(PLAN));
-  await screen.findByText("3 routes · Route A recommended");
+  await screen.findByText("3 Routes · Route A Recommended");
   fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
 
   const a = card("Route A");
@@ -616,7 +616,7 @@ test("a metric weight plans with the same pounds as the imperial one", async () 
   );
   fireEvent.click(screen.getByRole("radio", { name: "Metric" }));
   expect(screen.getByText("Max 36,287 kg gross")).toBeTruthy();
-  expect(screen.getByLabelText("Cargo weight (kg)")).toBeTruthy();
+  expect(screen.getByLabelText("Cargo Weight (kg)")).toBeTruthy();
   fillTrip("14515");
   const body = await submittedBody(fetchMock);
   expect(body.weight_lb).toBe(32000);
@@ -641,7 +641,7 @@ test("the theme toggle switches to dark, is remembered, and switches back", () =
     );
   renderFresh();
   expect(document.documentElement.dataset.theme).toBe("light"); // SPEC: light by default
-  fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+  fireEvent.click(screen.getByRole("button", { name: "Switch to Dark Theme" }));
   expect(document.documentElement.dataset.theme).toBe("dark");
   expect(screen.getByText("map theme: dark")).toBeTruthy(); // the map is built from the new theme, not the DOM's old one
   expect(localStorage.getItem("theme")).toBe("dark");
@@ -649,14 +649,14 @@ test("the theme toggle switches to dark, is remembered, and switches back", () =
   cleanup();
   renderFresh();
   expect(document.documentElement.dataset.theme).toBe("dark");
-  fireEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+  fireEvent.click(screen.getByRole("button", { name: "Switch to Light Theme" }));
   expect(document.documentElement.dataset.theme).toBe("light");
 });
 
 test("on a phone the trip panel is a sheet whose handle collapses and expands it", async () => {
   renderApp(Response.json(PLAN));
-  await screen.findByText("3 routes · Route A recommended");
-  const handle = screen.getByRole("button", { name: "Trip panel" });
+  await screen.findByText("3 Routes · Route A Recommended");
+  const handle = screen.getByRole("button", { name: "Trip Panel" });
   expect(handle.getAttribute("aria-expanded")).toBe("true");
   fireEvent.click(handle);
   expect(handle.getAttribute("aria-expanded")).toBe("false");
@@ -677,7 +677,7 @@ test("with US hours of service on, the plan includes breaks and each route says 
     </QueryClientProvider>,
   );
   fillTrip("70000");
-  fireEvent.click(screen.getByRole("radio", { name: "US hours of service" }));
+  fireEvent.click(screen.getByRole("radio", { name: "US Hours of Service" }));
   const body = await submittedBody(fetchMock);
   expect(body.hos).toBe(true);
 
@@ -687,8 +687,8 @@ test("with US hours of service on, the plan includes breaks and each route says 
 
   fireEvent.click(screen.getByRole("button", { name: "Route A" }));
   const list = screen.getByRole("list", { name: "Stops" });
-  expect(list.textContent).toContain("30 min break");
+  expect(list.textContent).toContain("30 min Break");
   expect(list.textContent).toContain("mi 480 · near North Platte, NE");
-  expect(list.textContent).toContain("10 h rest");
+  expect(list.textContent).toContain("10 h Rest");
   expect(list.textContent).toContain("mi 660.4");
 });

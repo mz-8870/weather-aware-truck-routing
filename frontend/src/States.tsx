@@ -9,14 +9,14 @@ import { useUnits } from "./useUnits";
 export type Example = { label: string; icon: LucideIcon; origin: string; destination: string };
 
 export const EXAMPLES: Example[] = [
-  { label: "Denver → Salt Lake City · winter storm", icon: Snowflake, origin: "Denver, CO", destination: "Salt Lake City, UT" },
-  { label: "Amarillo → Oklahoma City · high wind", icon: Wind, origin: "Amarillo, TX", destination: "Oklahoma City, OK" },
+  { label: "Denver → Salt Lake City · Winter Storm", icon: Snowflake, origin: "Denver, CO", destination: "Salt Lake City, UT" },
+  { label: "Amarillo → Oklahoma City · High Wind", icon: Wind, origin: "Amarillo, TX", destination: "Oklahoma City, OK" },
 ];
 
 export function FormHead() {
   return (
     <div className={styles.formHead}>
-      <h2 className={styles.formTitle}>Plan a trip</h2>
+      <h2 className={styles.formTitle}>Plan a Trip</h2>
       <p className={styles.lede}>We'll compare 3 routes and check the weather where your truck will be, when it gets there.</p>
     </div>
   );
@@ -25,7 +25,7 @@ export function FormHead() {
 export function Examples({ onPick }: { onPick: (example: Example) => void }) {
   return (
     <div className={styles.examples}>
-      <span className={styles.examplesTitle}>Or try an example</span>
+      <span className={styles.examplesTitle}>Or Try an Example</span>
       {EXAMPLES.map((e) => (
         <Button key={e.label} variant="secondary" type="button" className={styles.example} onClick={() => onPick(e)}>
           <e.icon aria-hidden className={styles.icon} />
@@ -85,7 +85,7 @@ export function NoRoute({ onEdit }: { onEdit: () => void }) {
       </p>
       <Button variant="secondary" type="button" onClick={onEdit}>
         <Pencil aria-hidden className={styles.icon} />
-        Edit trip
+        Edit Trip
       </Button>
     </section>
   );
@@ -103,7 +103,7 @@ export function Outage({ onRetry }: { onRetry: () => void }) {
       </div>
       <Button type="button" onClick={onRetry}>
         <RotateCw aria-hidden className={styles.icon} />
-        Try again
+        Try Again
       </Button>
     </section>
   );
