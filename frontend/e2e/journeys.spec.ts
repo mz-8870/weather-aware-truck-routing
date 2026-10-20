@@ -294,6 +294,19 @@ test.describe("preferences", () => {
 test.describe("on a phone", () => {
   test.skip(({ isMobile }) => !isMobile, "phone layout only");
 
+  test("the heatmap layer chips scroll sideways without showing a scrollbar", async ({ page }) => {
+    await page.goto("/");
+    await fillTrip(page);
+    await page.getByRole("button", { name: "Plan routes" }).click();
+    const row = await page.getByRole("radiogroup", { name: "Heatmap" }).evaluate((el) => {
+      let s = el as HTMLElement | null;
+      while (s && getComputedStyle(s).overflowX !== "auto") s = s.parentElement;
+      // Phone emulation uses overlay scrollbars (no layout space), so check what decides it: the bar is switched off.
+      return s && { scrollbarWidth: getComputedStyle(s).scrollbarWidth, scrollable: s.scrollWidth > s.clientWidth };
+    });
+    expect(row).toEqual({ scrollbarWidth: "none", scrollable: true });
+  });
+
   test("the trip sheet collapses to show the map and expands again", async ({ page }) => {
     await page.goto("/");
     await fillTrip(page);
