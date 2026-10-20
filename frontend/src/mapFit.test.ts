@@ -56,3 +56,12 @@ test("tags keep off the shared ends where the origin and destination pins are", 
 test("a single route is tagged at its middle", () => {
   expect(labelPoints([line(40, [0, 1, 2, 3, 4])])).toEqual([[2, 40]]);
 });
+
+test("tagging long trips stays fast", () => {
+  const long = (lat: number) => Array.from({ length: 20_000 }, (_, i) => [i / 100, lat + Math.sin(i / 500)] as [number, number]);
+  const paths = [long(40), long(40.2), long(39.8)];
+  const start = performance.now();
+  expect(labelPoints(paths)).toHaveLength(3);
+  // Runs on the main thread after every plan; unsampled, this took ~1.8 s. Generous for a cold, busy CI runner.
+  expect(performance.now() - start).toBeLessThan(100);
+});

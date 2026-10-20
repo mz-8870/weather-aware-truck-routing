@@ -147,7 +147,7 @@ test.describe("reading the results", () => {
 
 test.describe("the forecast map", () => {
   // The pins mark both ends of the trip, and tags name the routes; nothing the app draws over the map may hide them.
-  async function pinsHiddenBy(page: import("@playwright/test").Page, kind: "pins" | "tags" = "pins") {
+  async function markersHiddenBy(page: import("@playwright/test").Page, kind: "pins" | "tags" = "pins") {
     const pins = await page.locator(".maplibregl-marker").evaluateAll(
       (els, kind) =>
         els
@@ -179,12 +179,12 @@ test.describe("the forecast map", () => {
     await page.getByRole("button", { name: "Plan routes" }).click();
     if (!isMobile) await expect(page.getByRole("heading", { name: "Risk along corridor" })).toBeVisible();
     // The fit animates; wait until it settles clear. On desktop the sidebar sits beside the map, not over it.
-    await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
-    await expect.poll(() => pinsHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
+    await expect.poll(() => markersHiddenBy(page), { timeout: 5000 }).toEqual([]);
+    await expect.poll(() => markersHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     if (isMobile) {
       await page.getByRole("button", { name: "Trip panel" }).click(); // collapse: the map re-fits into the larger space
-      await expect.poll(() => pinsHiddenBy(page), { timeout: 5000 }).toEqual([]);
-      await expect.poll(() => pinsHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
+      await expect.poll(() => markersHiddenBy(page), { timeout: 5000 }).toEqual([]);
+      await expect.poll(() => markersHiddenBy(page, "tags"), { timeout: 5000 }).toEqual([]);
     }
   });
 
@@ -229,7 +229,7 @@ test.describe("the forecast map", () => {
       return xs.length === 2 && Math.abs(xs[1] - xs[0]) / width > 0.3;
     };
     await expect.poll(framed, { timeout: 5000 }).toBe(true);
-    expect((await pinsHiddenBy(page)).filter((r) => r === "outside the map")).toEqual([]);
+    expect((await markersHiddenBy(page)).filter((r) => r === "outside the map")).toEqual([]);
   });
 
   test("switch heatmap layers and scrub 0–48 h without new requests", async ({ page, api, isMobile }) => {
