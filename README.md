@@ -23,7 +23,7 @@ Plan a truck trip and see the weather **where the truck will be, when it gets th
 | `backend/config/views.py` | DRF endpoints: input validation and orchestration. |
 | `backend/tomtom.py` | Geocoding, autosuggest, truck routes (alternatives and via-point detours) and reverse geocoding. The API key never leaves the backend. |
 | `backend/checkpoints.py` | Samples checkpoints along the polyline, interpolates ETAs from TomTom's progress keyframes, assigns each checkpoint the miles it owns, simplifies display paths, and computes HOS breaks and stops. Pure functions. |
-| `backend/weather.py` | Open-Meteo hourly forecast in batched calls (50 locations each, 4 in parallel) with an in-memory LRU cache keyed by (lat, lon to 2 dp, UTC hour). |
+| `backend/weather.py` | Open-Meteo hourly forecast in batched calls (50 locations each, 4 in parallel), retried with back-off on rate limits. An in-memory LRU cache holds each place's whole hourly series (lat and lon to 2 dp, at least 4 days), so re-planning the same places at other hours (HOS breaks, a new departure) needs no new calls. |
 | `backend/risk.py`, `ranking.py`, `heatmap.py` | Classification and load rules, route ranking with the "why" text, and the corridor grid for the heatmap. Pure functions. |
 
 One httpx client is shared per request by TomTom and Open-Meteo. There is no database.
