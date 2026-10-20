@@ -216,11 +216,21 @@ test.describe("the forecast map", () => {
     for (const name of ["Route A", "Route B", "Route C"]) await expect(tag(name)).toBeVisible();
     const fill = (name: string) => tag(name).locator("div").evaluate((e) => getComputedStyle(e).backgroundColor);
     expect(await fill("Route A")).not.toBe(await fill("Route B")); // Route A is selected first
-    if (isMobile) await page.getByRole("button", { name: "Trip Panel" }).click(); // the sheet covers the cards' map area otherwise
-    await page.getByRole("button", { name: "Route B" }).click({ force: isMobile });
+    await page.getByRole("button", { name: "Route B" }).click(); // while the phone sheet is open and the card visible
+    if (isMobile) await page.getByRole("button", { name: "Trip Panel" }).click(); // then free the map for the checkpoint click
     const filled = async () => [await fill("Route A"), await fill("Route B"), await fill("Route C")];
     await expect.poll(async () => { const [a, b, c] = await filled(); return a === c && b !== c; }).toBe(true); // now Route B
-    await page.waitForTimeout(1200); // the selection doesn't move the map, but the plan's fit may still be easing
+    // The fit waits for the map's load event, which can come after the tags are placed on the continental view; wait
+    // until the trip is framed (its end pins spread out), then until the easing (or the phone re-fit) has stopped.
+    const framed = async () => {
+      const xs = await page.locator(".maplibregl-marker").evaluateAll((els) =>
+        els.filter((e) => e.querySelector("svg.lucide-circle-dot, svg.lucide-flag")).map((e) => e.getBoundingClientRect().x),
+      );
+      return xs.length === 2 && Math.abs(xs[1] - xs[0]) / (await page.locator("main").boundingBox())!.width > 0.3;
+    };
+    await expect.poll(framed, { timeout: 15_000 }).toBe(true); // slow under parallel software-WebGL runs
+    const at = async () => JSON.stringify(await tag("Route B").boundingBox());
+    await expect.poll(async () => { const a = await at(); await page.waitForTimeout(300); return a === (await at()); }, { timeout: 5000 }).toBe(true);
     // The tag's anchor is a vertex of Route B's path, which in these fixtures is a checkpoint, 14 px under the tag.
     const box = (await tag("Route B").boundingBox())!;
     await page.mouse.click(box.x + box.width / 2, box.y + box.height + 14);
