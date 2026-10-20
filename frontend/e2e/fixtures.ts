@@ -12,12 +12,14 @@ type RouteOptions = {
   detourVia?: string | null;
   stops?: unknown[];
   tripS?: number;
+  step?: [number, number]; // [dLat, dLon] between checkpoints; default heads west like Denver → Salt Lake City
 };
 
 /** One route Denver → Salt Lake City-ish with five checkpoints 130 mi apart. */
 export function route(name: string, o: RouteOptions = {}) {
   const { offsetLat = 0, minutes = 470, levels = [0, 0, 0, 0, 0], reasons = [] } = o;
-  const points = levels.map((_, i) => ({ lat: 39.74 + offsetLat * Math.sin((i * Math.PI) / 4) + i * 0.2, lon: -104.99 - i * 1.73 }));
+  const [dLat, dLon] = o.step ?? [0.2, -1.73];
+  const points = levels.map((_, i) => ({ lat: 39.74 + offsetLat * Math.sin((i * Math.PI) / 4) + i * dLat, lon: -104.99 + i * dLon }));
   const checkpoints = points.map((p, i) => ({
     mile: i * 130,
     lat: p.lat,

@@ -5,9 +5,10 @@ import App from "./App";
 
 // MapLibre needs WebGL, which jsdom lacks; the map is checked in the browser instead.
 vi.mock("./RouteMap", () => ({
-  RouteMap: ({ routes, selected, heat, trucks, mode }: { routes?: unknown[]; selected: number; heat?: { levels: unknown[] }; trucks?: number[][]; mode: string }) => (
+  RouteMap: ({ routes, selected, heat, trucks, mode, sheet }: { routes?: unknown[]; selected: number; heat?: { levels: unknown[] }; trucks?: number[][]; mode: string; sheet: string }) => (
     <div>
       <div>map theme: {mode}</div>
+      <div>map sheet: {sheet}</div>
       <div>
         map: {routes?.length ?? 0} routes, selected {selected}
       </div>
@@ -613,6 +614,7 @@ test("on a phone the trip panel is a sheet whose handle collapses and expands it
   expect(handle.getAttribute("aria-expanded")).toBe("true");
   fireEvent.click(handle);
   expect(handle.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.getByText("map sheet: peek")).toBeTruthy(); // the map re-fits into the freed space
   fireEvent.click(handle);
   expect(handle.getAttribute("aria-expanded")).toBe("true");
 });

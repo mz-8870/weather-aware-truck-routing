@@ -152,7 +152,7 @@
   }
 
   .body {
-    --sheet-h: 62dvh;
+    --sheet-h: 45dvh; /* Pencil 12a; mapFit.ts SHEET_OPEN */
 
     position: relative;
   }

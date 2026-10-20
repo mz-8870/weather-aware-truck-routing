@@ -320,7 +320,7 @@ export default function App() {
             </aside>
             <main className={styles.map}>
               {/* Remount on theme change: the basemap style and heat colors are built from the theme at mount. */}
-              <RouteMap key={theme} mode={theme} routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
+              <RouteMap key={theme} mode={theme} sheet={sheetOpen ? "open" : "peek"} routes={plan.data?.routes} selected={selected} onSelect={setSelected} heat={heat} trucks={trucks} />
               {plan.isIdle && <MapEmpty />}
               {plan.data && plan.variables && (
                 <ForecastControls
