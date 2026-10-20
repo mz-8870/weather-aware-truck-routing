@@ -24,6 +24,7 @@ Plan a truck trip and see the weather **where the truck will be, when it gets th
 | `backend/tomtom.py` | Geocoding, autosuggest, truck routes (alternatives and via-point detours) and reverse geocoding. The API key never leaves the backend. |
 | `backend/checkpoints.py` | Samples checkpoints along the polyline, interpolates ETAs from TomTom's progress keyframes, assigns each checkpoint the miles it owns, simplifies display paths, and computes HOS breaks and stops. Pure functions. |
 | `backend/weather.py` | Open-Meteo hourly forecast in batched calls (50 locations each, 4 in parallel), retried with back-off on rate limits. An in-memory LRU cache holds each place's whole hourly series (lat and lon to 2 dp, at least 4 days), so re-planning the same places at other hours (HOS breaks, a new departure) needs no new calls. |
+| `backend/simulated.py` | Scripted storms for the two example trips (demo mode). Pure functions. |
 | `backend/risk.py`, `ranking.py`, `heatmap.py` | Classification and load rules, route ranking with the "why" text, and the corridor grid for the heatmap. Pure functions. |
 
 One httpx client is shared per request by TomTom and Open-Meteo. There is no database.
@@ -141,6 +142,13 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 - **Layers:** Risk uses the cargo load rules. Wind, Rain and Snow each classify their own variable alone.
 - **Unknown cells** draw no heat.
 
+### Example trips (simulated weather)
+
+The two example trips use a **scripted storm** instead of the live forecast, so they show No Travel, High miles and a changed recommendation on any day. Only the weather is simulated: routes, distances, drive times and ETAs are real TomTom results, and the risk rules, slowdowns and ranking run unchanged. The storm drifts east and fades out by hour 30, so the heatmap moves when scrubbed. The results say "Simulated Weather". Re-planning an example (Edit, HOS, a later departure) keeps the storm; changing the origin or destination switches to the live forecast.
+
+- **Denver → Salt Lake City · Winter Storm:** snow and wind over I-80 in southern Wyoming. I-80 is No Travel for the 32,000 lb example load, US-40 has High miles, and I-70 is clear and recommended.
+- **Amarillo → Oklahoma City · High Wind:** wind over I-40 near Elk City. I-40 is No Travel, and the route without a No Travel zone is recommended.
+
 ### Units and display
 
 - **Units:** the backend is always imperial; the frontend converts for display only. Metric rule text keeps the original threshold too, for example "40.2 km/h (25 mph)". The choice is remembered and defaults from the locale.
@@ -181,6 +189,7 @@ Request:
 | `interval_mi` | 10, 25 (default) or 50 |
 | `hos` | Default false |
 | `origin_position`, `destination_position` | Optional `[lat, lon]` from autosuggest. They skip text geocoding. |
+| `demo` | Optional `winter-storm` or `high-wind`: a scripted storm replaces the forecast (example trips) |
 
 Response `200`:
 
@@ -201,7 +210,8 @@ Response `200`:
   "why": "Wins on high miles: 12.5 mi vs 48.0 mi on Route B (both 0 severe).",
   "earliest_clear_departure": null,
   "routes_found": 3,
-  "cargo_lb": 32000
+  "cargo_lb": 32000,
+  "demo": null
 }
 ```
 
@@ -216,6 +226,7 @@ Response `200`:
 | `offset_s` | Wall-clock seconds after departure |
 | `stops` | Empty unless `hos` is true |
 | `summary.avg_risk` | `null` when every mile is Unknown |
+| `demo` | The scripted storm used instead of the forecast, or `null` for live weather |
 
 Errors:
 - `422 {detail}`: a place wasn't found, or there is no route. No route adds `"code": "no_route"`.
@@ -223,7 +234,7 @@ Errors:
 
 ### `POST /api/heatmap`
 
-Request: `{ points: [[lat, lon]…] (1–2,000, every route's checkpoints), departure, cargo_lb }`
+Request: `{ points: [[lat, lon]…] (1–2,000, every route's checkpoints), departure, cargo_lb, demo? }` (`demo` as in `/api/plan`)
 
 Response: `{ hours: [49 ISO hours], spacing_mi: 25 | 50, cells: [[lon, lat]…], levels: { risk, wind, rain, snow: [hour][cell] → 0–4 | null } }`
 

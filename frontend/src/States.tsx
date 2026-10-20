@@ -6,11 +6,11 @@ import type { Trip } from "./plan";
 import styles from "./States.module.css";
 import { useUnits } from "./useUnits";
 
-export type Example = { label: string; icon: LucideIcon; origin: string; destination: string };
+export type Example = { label: string; icon: LucideIcon; origin: string; destination: string; demo: string };
 
 export const EXAMPLES: Example[] = [
-  { label: "Denver → Salt Lake City · Winter Storm", icon: Snowflake, origin: "Denver, CO", destination: "Salt Lake City, UT" },
-  { label: "Amarillo → Oklahoma City · High Wind", icon: Wind, origin: "Amarillo, TX", destination: "Oklahoma City, OK" },
+  { label: "Denver → Salt Lake City · Winter Storm", icon: Snowflake, origin: "Denver, CO", destination: "Salt Lake City, UT", demo: "winter-storm" },
+  { label: "Amarillo → Oklahoma City · High Wind", icon: Wind, origin: "Amarillo, TX", destination: "Oklahoma City, OK", demo: "high-wind" },
 ];
 
 export function FormHead() {

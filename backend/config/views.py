@@ -12,6 +12,7 @@ from rest_framework.throttling import AnonRateThrottle
 import ranking
 from heatmap import corridor_grid
 import risk
+import simulated
 import tomtom
 import weather
 from checkpoints import BREAK_S, REST_S, checkpoints, hos_elapsed, hos_stops, slowed
@@ -71,6 +72,7 @@ class TripSerializer(serializers.Serializer):
     hos = serializers.BooleanField(default=False)  # US hours-of-service breaks in the ETAs; off = non-stop driving
     origin_position = PositionField()
     destination_position = PositionField()
+    demo = serializers.ChoiceField(choices=list(simulated.STORMS), required=False)  # example trips: scripted weather
 
     def validate_departure(self, value):
         if value < timezone.now():
@@ -110,7 +112,7 @@ def plan(request: Request) -> Response:
         return Response({"detail": str(e)}, status=422)
     except tomtom.RoutingError:
         return Response({"detail": "Routing service unavailable. Try again."}, status=502)
-    return Response({**body, "routes_found": found})
+    return Response({**body, "routes_found": found, "demo": t.get("demo")})
 
 
 def _vehicle(t: dict) -> tomtom.Vehicle:
@@ -140,6 +142,14 @@ def _level(res: risk.RiskResult) -> int | None:
     return None if res.level is None else int(res.level)
 
 
+def _readings(client, points: list[tuple], t: dict, fetch: bool = True) -> list[weather.Reading]:
+    """Open-Meteo, or the example's scripted storm. The storm starts at the current hour, so later departures meet it
+    later, the same as plan and heatmap requests made moments apart."""
+    if t.get("demo"):
+        return simulated.readings(t["demo"], points, timezone.now().replace(minute=0, second=0, microsecond=0))
+    return weather.readings(client, points, fetch=fetch)
+
+
 def _wall_clock(drive: list[list], hos: bool) -> list[list]:
     """With HOS, drive offsets become wall-clock time, so ETAs, weather hours and truck positions include the stops."""
     return [[replace(c, offset_s=round(hos_elapsed(c.offset_s))) for c in rc] for rc in drive] if hos else drive
@@ -151,7 +161,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
     # Pass 1: the risk at TomTom's ETAs sets each checkpoint's speed; the weather below is then checked at the slower
     # ETAs. One pass, not iterated until the ETAs settle (SPEC).
     first = _wall_clock(drive, t["hos"])
-    first_flat = weather.readings(client, _points(first, _etas(first, t["departure"])))
+    first_flat = _readings(client, _points(first, _etas(first, t["departure"])), t)
     _, risks, _ = _classify(routes, first, first_flat, cargo_lb)
     slow = [slowed(rc, [SPEED_FACTOR[_level(res)] for res in rr]) for rc, rr in zip(drive, risks)]
     delays = [s[-1].offset_s - d[-1].offset_s for s, d in zip(slow, drive)]
@@ -185,7 +195,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
     etas = _etas(cps, t["departure"])
     # Same places as pass 1 at later hours: the cache holds their whole series, and one that failed stays Unknown
     # rather than costing a second timeout.
-    flat = weather.readings(client, _points(cps, etas), fetch=False) if any(delays) else first_flat
+    flat = _readings(client, _points(cps, etas), t, fetch=False) if any(delays) else first_flat
     readings, results, summaries = _classify(routes, cps, flat, cargo_lb)
     ranked = ranking.rank(summaries)
     names = {i: f"Route {'ABC'[n]}" for n, i in enumerate(ranked.order)}
@@ -195,7 +205,7 @@ def _plan_json(client, routes: list[tomtom.Route], t: dict) -> dict:
         # failed to fetch is retried once, not once per hour.
         hours = range(1, CLEAR_SEARCH_H + 1)
         n = sum(len(rc) for rc in cps)
-        flat = weather.readings(client, [p for h in hours for p in _points(cps, _etas(cps, t["departure"] + timedelta(hours=h)))])
+        flat = _readings(client, [p for h in hours for p in _points(cps, _etas(cps, t["departure"] + timedelta(hours=h)))], t)
         later = (_classify(routes, cps, flat[k * n : (k + 1) * n], cargo_lb)[2] for k in range(len(hours)))
         if found := ranking.earliest_clear(later):
             h, i = found
@@ -277,6 +287,7 @@ class HeatmapSerializer(serializers.Serializer):
     points = serializers.ListField(child=PositionField(), min_length=1, max_length=2000)  # route [lat, lon]s
     departure = serializers.DateTimeField()
     cargo_lb = serializers.FloatField(min_value=0)
+    demo = serializers.ChoiceField(choices=list(simulated.STORMS), required=False)
 
 
 HEATMAP_HOURS = 49  # 0-48 h after departure (SPEC)
@@ -303,7 +314,7 @@ def heatmap(request: Request) -> Response:
     start = d["departure"].astimezone(UTC).replace(minute=0, second=0, microsecond=0)
     hours = [start + timedelta(hours=h) for h in range(HEATMAP_HOURS)]
     with tomtom.http_client() as client:
-        flat = weather.readings(client, [(lat, lon, hour) for hour in hours for lat, lon in cells])
+        flat = _readings(client, [(lat, lon, hour) for hour in hours for lat, lon in cells], d)
     if all(r == weather.UNKNOWN for r in flat):
         return Response({"detail": "Weather layer didn't load."}, status=502)
 

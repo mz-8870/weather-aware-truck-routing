@@ -11,6 +11,7 @@ export type Trip = {
   axle_weight_lb?: number;
   interval_mi: number;
   hos: boolean; // US hours-of-service stops in the ETAs; false = non-stop driving
+  demo?: string; // example trips: a scripted storm instead of the live forecast
 };
 
 export type Checkpoint = {
@@ -66,6 +67,7 @@ export type Plan = {
   earliest_clear_departure: { hours_later: number; departure: string; route: string } | null;
   routes_found: number; // how many TomTom returned before detours
   cargo_lb: number;
+  demo: string | null; // the scripted storm used instead of the live forecast, if any
 };
 
 export type ApiError = { status: number; body: Record<string, string[] | string> };

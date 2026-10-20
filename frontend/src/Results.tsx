@@ -104,6 +104,13 @@ export function Results({ plan, intervalMi, hos, selected, expanded, onSelect, o
       ) : (
         plan.routes.filter((r) => r.summary.notravel_mi > 0).map((r) => <Banner key={r.name} tone="notravel" {...noTravelBanner(r, f)} />)
       )}
+      {plan.demo && (
+        <Banner
+          tone="info"
+          title="Simulated Weather"
+          body="This example uses a scripted storm to show how risky routes look. Routes, distances and drive times are real TomTom results; the weather is not. Change the origin or destination to use the live forecast."
+        />
+      )}
       {detour && <Banner tone="info" {...detour} />}
       {plan.routes.map((route, i) => (
         <RouteCard
