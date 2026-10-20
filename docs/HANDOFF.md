@@ -25,7 +25,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | What | Where |
 |---|---|
 | Repo | `github.com/mz-8870/weather-aware-truck-routing` (private; `gh` logged in as **mz-8870**) |
-| Issues | #1–#16 (original plan), #31 (HOS), #37 (e2e journeys), #39–#42 (production fixes); label `ready-for-agent` |
+| Issues | #1–#16 (original plan), #31 (HOS), #37 (e2e journeys), #39–#42 (production fixes), #49/#50/#52/#53 (features + casing, 2026-10-20); label `ready-for-agent` |
 | Live | https://weather-aware-truck-routing-gamma.vercel.app (Vercel project `mz-8870/weather-aware-truck-routing`, connected to GitHub) |
 | Live e2e | `cd frontend && LIVE_URL=https://weather-aware-truck-routing-gamma.vercel.app npm run e2e:live` (not in CI) |
 | Designs | `design/truck-routing.pen` — Design System (Light, Dark) + screens 01–12 |
@@ -33,14 +33,14 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | UI/UX Pro Max skill | `~/.claude/skills/ui-ux-pro-max` (run scripts without `python -I`) |
 
 ## Resume here (2026-10-20, end of day)
-**Every planned ticket is done and live.** Nothing is in progress; there are no open PRs.
+**Every planned ticket is done and live**, including #49, #50, #52 and #53 (merged as PRs #55–#58). Nothing is in progress; there are no open PRs. Two items wait on the user (see Open items).
 
 1. **Needs the user:** make the repo public when they say so (`gh repo edit --visibility public --accept-visibility-change-consequences`).
 2. **Deploys:** every merge to `main` deploys to production; every PR gets a Vercel preview. Manual: `npx vercel deploy --prod --yes` from the worktree root (linked via `.vercel/`).
 3. **Production was tested by hand** (Playwright MCP, 2026-10-20) and its 4 findings were fixed (#39–#42), then re-verified live.
 4. **Ideas if the user wants more** (FUTURE_FEATURES.md, by value): NWS severe-weather alerts on the corridor; HOS stops at real truck stops; a shared Redis weather cache (Open-Meteo quota under real load).
 5. **Known small gaps:**
-   - Audit leftovers: checkpoint details by keyboard plus an active checkpoint marker on the map, the "Why Low" copy, and dark-mode severe vs high hue distance (1.36:1).
+   - Audit leftovers: checkpoint details by keyboard (the active checkpoint ring is done, #50), the "Why Low" copy, and dark-mode severe vs high hue distance (1.36:1).
    - On short phones (~667 px) a pin can touch the dock (`shortcut:` in `mapFit.ts`).
    - The weather cache never expires (`shortcut:` in `weather.py`).
 6. **Local dev servers are off** (stopped for memory); start them only when needed.
@@ -77,7 +77,7 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 | 49 | Earliest clear departure | ✅ merged (#55) |
 | 50 | Route tags on the map + active checkpoint ring | ✅ merged (#56) |
 | 52 | Weather-adjusted speed | ✅ merged (#57) |
-| 53 | Casing pass (rule 16) | ✅ this PR (code); `.pen` text updated in Pencil, commit after the user saves |
+| 53 | Casing pass (rule 16) | ✅ merged (#58); `.pen` text updated in Pencil, not committed until the user saves |
 
 ## Decisions not obvious from the spec
 - **Test seams (confirmed):** #1 → `GET /api/health` via Django test client + rendered App with `fetch` stubbed. #5 → only `classify(wind_mph, rain_in_hr, snow_in_hr, cargo_lb, beyond_forecast=False) -> RiskResult(level, reasons, beyond_forecast)`; Unknown is `level=None`.
@@ -130,4 +130,6 @@ Give this file to a new Claude Code session. Start the session **in `C:\dev\weat
 
 ## Open items for the user
 - Make the repo public when ready (only the user can decide).
+- **Speed factors (#52):** confirm or change Moderate 0.90 / High 0.75 / Severe 0.60 (`views.SPEED_FACTOR`, SPEC marks them pending).
+- **`.pen` casing edits (#53):** 131 labels were updated in the open design. The user must save (Ctrl+S); the main checkout's `.pen` already had uncommitted edits from before, so ask whether to commit them together.
 - An empty frame named "Frame" at 0,0 in the `.pen`: the user hasn't said whether to delete it.
