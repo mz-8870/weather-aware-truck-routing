@@ -9,7 +9,7 @@ The script is mapped to the brief's grading: **40% logic, 40% UI/map/heatmap smo
 ## 0:30 – 3:30 · Logic (40%)
 1. **Plan.** Click the **Denver → Salt Lake City · winter storm** example.
    - "TomTom truck routing gives up to three routes. If it returns fewer, I add a via-point detour and say so."
-   - Point at the **Simulated Weather** banner. "To be clear about what's real: the routes, distances and drive times are live TomTom results. The weather in this example is a scripted storm over I-80, so you can see a bad day on any day. Your own trips use the live Open-Meteo forecast."
+   - Point at the **Simulated weather** banner. "To be clear about what's real: the routes, distances and drive times are live TomTom results. The weather in this example is a scripted storm over I-80, so you can see a bad day on any day. Your own trips use the live Open-Meteo forecast."
 2. **Checkpoints and ETAs.** Expand Route A.
    - Checkpoints run every 25 mi. "Each ETA is interpolated from TomTom's own distance and time keyframes, so it uses the truck profile and historical traffic for the departure."
    - Open a checkpoint: wind, gusts, rain, snow, the level, and **the rule that set it**.

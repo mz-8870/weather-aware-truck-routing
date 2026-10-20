@@ -144,7 +144,7 @@ Thresholds are in imperial units. Each band includes its lower bound and exclude
 
 ### Example trips (simulated weather)
 
-The two example trips use a **scripted storm** instead of the live forecast, so they show No Travel, High miles and a changed recommendation on any day. Only the weather is simulated: routes, distances, drive times and ETAs are real TomTom results, and the risk rules, slowdowns and ranking run unchanged. The storm drifts east and fades out by hour 30, so the heatmap moves when scrubbed. The results say "Simulated Weather". Re-planning an example (Edit, HOS, a later departure) keeps the storm; changing the origin or destination switches to the live forecast.
+The two example trips use a **scripted storm** instead of the live forecast, so they show No Travel, High miles and a changed recommendation on any day. Only the weather is simulated: routes, distances, drive times and ETAs are real TomTom results, and the risk rules, slowdowns and ranking run unchanged. The storm drifts east and fades out by hour 30, so the heatmap moves when scrubbed. The results, the route detail and the heatmap controls say "Simulated weather". Re-planning an example (Edit, HOS, a later departure) keeps the storm; changing the origin or destination switches to the live forecast.
 
 - **Denver → Salt Lake City · Winter Storm:** snow and wind over I-80 in southern Wyoming. I-80 is No Travel for the 32,000 lb example load, US-40 has High miles, and I-70 is clear and recommended.
 - **Amarillo → Oklahoma City · High Wind:** wind over I-40 near Elk City. I-40 is No Travel, and the route without a No Travel zone is recommended.

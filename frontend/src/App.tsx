@@ -10,7 +10,7 @@ import { fetchHeatmap, heatmapQuery, truckPosition, type Variable } from "./heat
 import { SegmentedControl } from "./components/SegmentedControl";
 import { Toast, ToastProvider } from "./components/Toast";
 import { LocationField, type Place } from "./LocationField";
-import { planTrip, type ApiError, type Plan, type Trip } from "./plan";
+import { planTrip, type ApiError, type Demo, type Plan, type Trip } from "./plan";
 import { Results } from "./Results";
 import { RouteMap } from "./RouteMap";
 import { Examples, FormHead, MapEmpty, NoRoute, Outage, Planning, TripSummary, type Example } from "./States";
@@ -69,7 +69,7 @@ export default function App() {
     axles: "",
     interval: "25",
     hos: "off" as "off" | "on",
-    demo: undefined as string | undefined, // set by an example; cleared when origin or destination changes
+    demo: undefined as Demo | undefined, // set by an example; cleared when origin or destination changes
   });
   // Weights are kept in pounds (what the backend takes) and only shown in the current units,
   // so flipping units never re-rounds them.
@@ -344,6 +344,7 @@ export default function App() {
                   departure={plan.variables.departure}
                   status={heatmap.status}
                   onRetry={() => heatmap.refetch()}
+                  simulated={!!plan.data.demo}
                 />
               )}
             </main>

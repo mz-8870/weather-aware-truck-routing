@@ -2,11 +2,11 @@
 import { MapPinOff, Pencil, RotateCw, Route as RouteIcon, ServerCrash, Snowflake, Wind, type LucideIcon } from "lucide-react";
 import { Button } from "./components/Button";
 import { dayTime } from "./format";
-import type { Trip } from "./plan";
+import type { Demo, Trip } from "./plan";
 import styles from "./States.module.css";
 import { useUnits } from "./useUnits";
 
-export type Example = { label: string; icon: LucideIcon; origin: string; destination: string; demo: string };
+export type Example = { label: string; icon: LucideIcon; origin: string; destination: string; demo: Demo };
 
 export const EXAMPLES: Example[] = [
   { label: "Denver → Salt Lake City · Winter Storm", icon: Snowflake, origin: "Denver, CO", destination: "Salt Lake City, UT", demo: "winter-storm" },

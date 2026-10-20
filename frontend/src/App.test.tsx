@@ -424,7 +424,11 @@ test("example trips use a labelled simulated storm until origin or destination c
     </QueryClientProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: "Denver → Salt Lake City · Winter Storm" }));
-  expect(await screen.findByText("Simulated Weather")).toBeTruthy();
+  expect(await screen.findByText("Simulated weather", { selector: "span" })).toBeTruthy();
+  expect(await screen.findByText("Simulated weather", { selector: "p" })).toBeTruthy(); // on the map too
+  fireEvent.click(screen.getByRole("button", { name: "Route B" }));
+  expect(screen.getByText("Simulated weather", { selector: "span" })).toBeTruthy(); // and beside the readings
+  fireEvent.click(screen.getByRole("button", { name: "All Routes" }));
   expect(JSON.parse(String(planCall(fetchMock)![1]?.body)).demo).toBe("winter-storm");
   await waitFor(() => expect(heatmapCalls(fetchMock)).toHaveLength(1));
   expect(JSON.parse(String(heatmapCalls(fetchMock)[0][1]?.body)).demo).toBe("winter-storm");
